@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Two offset screens to suggest "expand" -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M26,34 L70,34 C74.4,34 78,37.6 78,42 L78,70 C78,74.4 74.4,78 70,78 L26,78 C21.6,78 18,74.4 18,70 L18,42 C18,37.6 21.6,34 26,34 Z"
+        android:strokeColor="#7CFAC6"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4" />
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M38,26 L82,26 C86.4,26 90,29.6 90,34 L90,62 C90,66.4 86.4,70 82,70 L38,70 C33.6,70 30,66.4 30,62 L30,34 C30,29.6 33.6,26 38,26 Z"
+        android:strokeColor="#E9F2FF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4" />
+
+    <!-- Small accent dot -->
+    <path
+        android:fillColor="#FF8C42"
+        android:pathData="M73,40 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+</vector>
+

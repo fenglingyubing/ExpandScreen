@@ -51,7 +51,7 @@
     <string name="notification_channel_name">Display Service</string>
     <string name="notification_channel_desc">Shows connection status and performance</string>
     <string name="notification_connected">Connected to %s</string>
-    <string name="notification_streaming">Streaming: FPS %d | Latency %dms</string>
+    <string name="notification_streaming">Streaming: FPS %1$d | Latency %2$dms</string>
 
     <!-- Errors -->
     <string name="error_network">Network error</string>

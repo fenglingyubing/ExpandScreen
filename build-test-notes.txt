@@ -72,6 +72,29 @@
 
 ---
 
+任务2.2.2构建要求:
+- JDK 17
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+- .NET 8.0 SDK（用于Windows端协议/集成测试的跨平台部分）
+
+构建/测试状态:
+✅ Android客户端网络接收模块已完成并提交
+
+关键命令与输出（本地Linux）:
+1. .NET（跨平台可跑的部分）:
+   - `dotnet test ExpandScreen.sln -c Release -p:EnableWindowsTargeting=true`
+   - 结果：Passed 18 (Skipped 9), Failed 0
+
+2. Android（单元测试）:
+   - `cd android-client && ./gradlew :app:testDebugUnitTest`
+   - 结果：BUILD SUCCESSFUL
+
+说明:
+- Android SDK 通过 `android-client/local.properties` 指定 `sdk.dir`（该文件已在 `android-client/.gitignore` 中忽略）
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

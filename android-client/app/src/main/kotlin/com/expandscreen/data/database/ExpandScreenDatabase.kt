@@ -18,7 +18,7 @@ import com.expandscreen.data.model.WindowsDeviceEntity
         ConnectionLogEntity::class
     ],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class ExpandScreenDatabase : RoomDatabase() {
     abstract fun deviceDao(): DeviceDao

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ExpandScreen.Protocol\ExpandScreen.Protocol.csproj" />
+    <ProjectReference Include="..\ExpandScreen.Utils\ExpandScreen.Utils.csproj" />
+  </ItemGroup>
+
+</Project>

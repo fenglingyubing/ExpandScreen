@@ -1,0 +1,36 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore ExpandScreen.sln
+
+    - name: Build
+      run: dotnet build ExpandScreen.sln --configuration Release --no-restore
+
+    - name: Test
+      run: dotnet test ExpandScreen.sln --configuration Release --no-build --verbosity normal
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: |
+          src/**/bin/Release/**
+          !src/**/bin/Release/**/ref/**

@@ -319,10 +319,11 @@
                         <Grid Grid.Row="1"/>
 
                         <!-- Action Buttons -->
-                        <StackPanel Grid.Row="2" Spacing="12">
+                        <StackPanel Grid.Row="2">
                             <Button Style="{DynamicResource PrimaryButtonStyle}"
                                    Command="{Binding ConnectCommand}"
-                                   Content="连接设备"
+                                    Content="连接设备"
+                                   Margin="0,0,0,12"
                                    HorizontalAlignment="Stretch"/>
 
                             <Button Style="{DynamicResource SecondaryButtonStyle}"

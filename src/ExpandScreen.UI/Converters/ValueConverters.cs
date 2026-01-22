@@ -16,10 +16,10 @@ namespace ExpandScreen.UI.Converters
             {
                 return status switch
                 {
-                    DeviceStatus.Connected => new SolidColorBrush(Color.FromRgb(0, 230, 118)), // Green
-                    DeviceStatus.Connecting => new SolidColorBrush(Color.FromRgb(255, 179, 0)), // Orange
-                    DeviceStatus.Error => new SolidColorBrush(Color.FromRgb(255, 82, 82)), // Red
-                    _ => new SolidColorBrush(Color.FromRgb(100, 116, 139)) // Gray
+                    DeviceStatus.Connected => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 230, 118)), // Green
+                    DeviceStatus.Connecting => new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 179, 0)), // Orange
+                    DeviceStatus.Error => new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 82, 82)), // Red
+                    _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 116, 139)) // Gray
                 };
             }
             return new SolidColorBrush(Colors.Gray);

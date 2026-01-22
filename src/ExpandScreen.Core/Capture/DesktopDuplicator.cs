@@ -217,15 +217,15 @@ namespace ExpandScreen.Core.Capture
         {
             try
             {
-                var result = _output!.DuplicateOutput(_device!, out _deskDupl);
+                _deskDupl = _output!.DuplicateOutput(_device!);
 
-                if (result.Success && _deskDupl != null)
+                if (_deskDupl != null)
                 {
                     LogHelper.Info("Desktop Duplication创建成功");
                     return true;
                 }
 
-                LogHelper.Error($"创建Desktop Duplication失败: {result}");
+                LogHelper.Error("创建Desktop Duplication失败: outputDuplication为null");
                 return false;
             }
             catch (Exception ex)
@@ -292,18 +292,18 @@ namespace ExpandScreen.Core.Capture
                 try
                 {
                     // 尝试获取新帧
-                    var result = _deskDupl!.TryAcquireNextFrame(timeoutMs, out var frameInfo, out var desktopResource);
+                    var result = _deskDupl!.AcquireNextFrame(timeoutMs, out var frameInfo, out var desktopResource);
 
                     if (result.Failure)
                     {
                         // 超时不算错误
-                        if (result.Code == DXGI.WaitTimeout)
+                        if (result.Code == Vortice.DXGI.ResultCode.WaitTimeout)
                         {
                             return null;
                         }
 
                         // 如果是ACCESS_LOST，需要重新创建duplication
-                        if (result.Code == DXGI.ErrorAccessLost)
+                        if (result.Code == Vortice.DXGI.ResultCode.AccessLost)
                         {
                             LogHelper.Warning("Desktop访问丢失，尝试重新初始化");
                             Reinitialize();
@@ -399,8 +399,8 @@ namespace ExpandScreen.Core.Capture
                     return null;
                 }
 
-                var rectCount = dirtyRectBufferSize / Marshal.SizeOf<Vortice.Mathematics.Rectangle>();
-                var rects = new Vortice.Mathematics.Rectangle[rectCount];
+                var rectCount = dirtyRectBufferSize / Marshal.SizeOf<Vortice.RawRect>();
+                var rects = new Vortice.RawRect[rectCount];
 
                 _deskDupl.GetFrameDirtyRects(dirtyRectBufferSize, rects, out _);
 

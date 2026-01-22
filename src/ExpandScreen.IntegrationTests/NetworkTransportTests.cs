@@ -1,9 +1,11 @@
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Protocol.Network;
+using Xunit;
 
-namespace ExpandScreen.Protocol.Tests
+namespace ExpandScreen.IntegrationTests
 {
     /// <summary>
     /// 网络传输模块单元测试
@@ -283,5 +285,3 @@ namespace ExpandScreen.Protocol.Tests
     }
 }
 
-// 注意：这个文件包含了使用xUnit框架的单元测试
-// 需要添加xUnit NuGet包：xunit, xunit.runner.visualstudio, Microsoft.NET.Test.Sdk

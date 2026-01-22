@@ -324,7 +324,10 @@ namespace ExpandScreen.Core.Encode
         private string GetFFmpegError(int error)
         {
             byte[] buffer = new byte[1024];
-            ffmpeg.av_strerror(error, buffer, (ulong)buffer.Length);
+            fixed (byte* bufferPtr = buffer)
+            {
+                ffmpeg.av_strerror(error, bufferPtr, (ulong)buffer.Length);
+            }
             return System.Text.Encoding.UTF8.GetString(buffer).TrimEnd('\0');
         }
     }

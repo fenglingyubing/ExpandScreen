@@ -166,10 +166,9 @@ namespace ExpandScreen.Core.Encode
                 bitrate = (int)(bitrate * 1.3);
             }
 
-            return VideoEncoderConfig.CreateLowLatency(width, height, framerate)
-            {
-                Bitrate = bitrate
-            };
+            var config = VideoEncoderConfig.CreateLowLatency(width, height, framerate);
+            config.Bitrate = bitrate;
+            return config;
         }
     }
 }

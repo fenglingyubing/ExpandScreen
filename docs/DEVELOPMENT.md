@@ -19,7 +19,7 @@
 
 1. **Visual Studio 2022**
    - 工作负载：.NET桌面开发
-   - 组件：.NET 6.0 SDK
+   - 组件：.NET 8.0 SDK
 
 2. **Windows Driver Kit (WDK)**
    - 用于虚拟显示驱动开发
@@ -250,12 +250,12 @@ dotnet test ExpandScreen.sln --verbosity normal
 
 ## 常见问题
 
-### Q: 构建失败，提示找不到.NET 6.0 SDK
+### Q: 构建失败，提示找不到.NET 8.0 SDK
 
-**A:** 确保已安装.NET 6.0 SDK：
+**A:** 确保已安装.NET 8.0 SDK：
 
 ```bash
-dotnet --version  # 应显示6.0.x
+dotnet --version  # 应显示8.0.x
 ```
 
 如未安装，从 https://dotnet.microsoft.com/ 下载安装。

@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,10 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Vortice.Direct3D11" Version="3.3.3" />
-    <PackageReference Include="Vortice.DXGI" Version="3.3.3" />
+    <PackageReference Include="Vortice.Direct3D11" Version="3.3.4" />
+    <PackageReference Include="Vortice.DXGI" Version="3.3.4" />
     <PackageReference Include="System.Threading.Channels" Version="7.0.0" />
-    <PackageReference Include="FFmpeg.AutoGen" Version="6.1.1.1" />
+    <PackageReference Include="FFmpeg.AutoGen" Version="7.0.0" />
   </ItemGroup>
 
 </Project>

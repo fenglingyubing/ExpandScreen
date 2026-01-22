@@ -128,7 +128,8 @@ namespace ExpandScreen.Core.Encode
 
             try
             {
-                return await _inputQueue.Writer.WriteAsync(frame);
+                await _inputQueue.Writer.WriteAsync(frame);
+                return true;
             }
             catch (ChannelClosedException)
             {

@@ -57,10 +57,10 @@
 
             <!-- Settings Content -->
             <ScrollViewer Grid.Row="1" Margin="24" VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="24">
+                <StackPanel>
 
                     <!-- General Settings -->
-                    <Border Style="{DynamicResource CardStyle}">
+                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,24">
                         <StackPanel>
                             <TextBlock Text="常规"
                                       FontFamily="{DynamicResource UIFont}"
@@ -118,7 +118,7 @@
                     </Border>
 
                     <!-- Video Settings -->
-                    <Border Style="{DynamicResource CardStyle}">
+                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,24">
                         <StackPanel>
                             <TextBlock Text="视频"
                                       FontFamily="{DynamicResource UIFont}"
@@ -197,7 +197,7 @@
                     </Border>
 
                     <!-- Network Settings -->
-                    <Border Style="{DynamicResource CardStyle}">
+                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,24">
                         <StackPanel>
                             <TextBlock Text="网络"
                                       FontFamily="{DynamicResource UIFont}"
@@ -314,10 +314,10 @@
                     CornerRadius="0,0,12,12"
                     Padding="24,16">
                 <StackPanel Orientation="Horizontal"
-                           HorizontalAlignment="Right"
-                           Spacing="12">
+                           HorizontalAlignment="Right">
                     <Button Style="{DynamicResource SecondaryButtonStyle}"
                            Content="恢复默认"
+                           Margin="0,0,12,0"
                            Click="RestoreDefaults_Click"/>
                     <Button Style="{DynamicResource PrimaryButtonStyle}"
                            Content="保存设置"

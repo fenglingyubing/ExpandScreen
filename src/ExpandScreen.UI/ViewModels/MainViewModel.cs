@@ -133,7 +133,7 @@ namespace ExpandScreen.UI.ViewModels
         {
             var settingsWindow = new SettingsWindow
             {
-                Owner = Application.Current.MainWindow
+                Owner = System.Windows.Application.Current.MainWindow
             };
             settingsWindow.ShowDialog();
         }
@@ -169,7 +169,7 @@ namespace ExpandScreen.UI.ViewModels
 
         private void ApplyTheme()
         {
-            var app = Application.Current;
+            var app = System.Windows.Application.Current;
             var themeDictionary = new ResourceDictionary();
 
             if (IsDarkTheme)

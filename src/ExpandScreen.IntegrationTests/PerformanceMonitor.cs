@@ -9,8 +9,9 @@ namespace ExpandScreen.IntegrationTests
     public class PerformanceMonitor : IDisposable
     {
         private readonly Process _currentProcess;
-        private readonly PerformanceCounter? _cpuCounter;
         private readonly Stopwatch _totalTimeWatch;
+        private TimeSpan _lastTotalProcessorTime;
+        private long _lastCpuCheckTimeMs;
         private long _frameCount;
         private long _totalEncodeTime;
         private long _totalSendTime;
@@ -21,16 +22,8 @@ namespace ExpandScreen.IntegrationTests
             _currentProcess = Process.GetCurrentProcess();
             _totalTimeWatch = Stopwatch.StartNew();
             _frameTimes = new List<long>();
-
-            try
-            {
-                // 尝试创建CPU计数器（可能在某些环境下失败）
-                _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-            }
-            catch
-            {
-                LogHelper.Warning("无法创建CPU性能计数器");
-            }
+            _lastTotalProcessorTime = _currentProcess.TotalProcessorTime;
+            _lastCpuCheckTimeMs = 0;
         }
 
         /// <summary>
@@ -132,7 +125,28 @@ namespace ExpandScreen.IntegrationTests
         {
             try
             {
-                return _cpuCounter?.NextValue() ?? 0;
+                _currentProcess.Refresh();
+
+                var nowMs = _totalTimeWatch.ElapsedMilliseconds;
+                var elapsedMs = nowMs - _lastCpuCheckTimeMs;
+                if (elapsedMs <= 0)
+                {
+                    return 0;
+                }
+
+                var totalProcessorTime = _currentProcess.TotalProcessorTime;
+                var cpuMs = (totalProcessorTime - _lastTotalProcessorTime).TotalMilliseconds;
+
+                _lastTotalProcessorTime = totalProcessorTime;
+                _lastCpuCheckTimeMs = nowMs;
+
+                var usage = cpuMs / elapsedMs * 100.0 / Environment.ProcessorCount;
+                if (double.IsNaN(usage) || double.IsInfinity(usage))
+                {
+                    return 0;
+                }
+
+                return Math.Clamp(usage, 0, 100);
             }
             catch
             {
@@ -149,7 +163,6 @@ namespace ExpandScreen.IntegrationTests
 
         public void Dispose()
         {
-            _cpuCounter?.Dispose();
         }
     }
 

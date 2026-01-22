@@ -35,7 +35,7 @@ ExpandScreen/
 
 ### Windows客户端
 
-- .NET 6.0
+- .NET 8.0
 - WPF (Windows Presentation Foundation)
 - DXGI Desktop Duplication API
 - FFmpeg / NVENC / QuickSync
@@ -52,7 +52,7 @@ ExpandScreen/
 ### Windows开发
 
 - Visual Studio 2022 或更高版本
-- .NET 6.0 SDK
+- .NET 8.0 SDK
 - Windows 10/11 (支持WDDM 2.0+)
 - Windows Driver Kit (WDK) - 用于虚拟显示驱动开发
 

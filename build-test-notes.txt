@@ -1,10 +1,10 @@
 构建和测试说明
 ================
 
-当前环境: Linux (无法编译Windows驱动和.NET项目)
+当前环境: Linux (可执行dotnet restore/build/test；Windows驱动仍需Windows+WDK)
 
 任务2.1.6构建要求:
-- .NET 6.0 SDK
+- .NET 8.0 SDK
 - Windows/Linux/macOS (跨平台)
 - 无特殊依赖
 
@@ -37,7 +37,7 @@
 ---
 
 任务2.1.8构建要求:
-- .NET 6.0 SDK
+- .NET 8.0 SDK
 - Windows 10/11（用于完整集成测试）
 - xUnit测试框架
 - 依赖于所有前序任务的模块
@@ -81,7 +81,6 @@
 - Windows 10/11操作系统
 
 任务2.1.3-2.1.5构建要求:
-- .NET 6.0 SDK
+- .NET 8.0 SDK
 - Visual Studio 2022或VS Code
 - 相关NuGet包会自动恢复
-

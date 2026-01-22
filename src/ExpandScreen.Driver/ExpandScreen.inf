@@ -1,0 +1,84 @@
+;
+; ExpandScreen.inf
+;
+; ExpandScreen虚拟显示驱动安装文件
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Display
+ClassGuid={4d36e968-e325-11ce-bfc1-08002be10318}
+Provider=%ManufacturerName%
+CatalogFile=ExpandScreen.cat
+DriverVer=01/22/2026,1.0.0.0
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir = 12
+ExpandScreen_Device_CoInstaller_CopyFiles = 11
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+ExpandScreen.sys  = 1,,
+
+; =================== Class Section ===========================
+
+[ClassInstall32]
+AddReg=ClassInstall_AddReg
+
+[ClassInstall_AddReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-1
+
+; =================== Install Section =========================
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%ExpandScreen.DeviceDesc%=ExpandScreen_Device, Root\ExpandScreen
+
+[ExpandScreen_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+ExpandScreen.sys
+
+; =================== Service Installation ====================
+
+[ExpandScreen_Device.NT.Services]
+AddService = ExpandScreen,%SPSVCINST_ASSOCSERVICE%, ExpandScreen_Service_Inst
+
+[ExpandScreen_Service_Inst]
+DisplayName    = %ExpandScreen.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\ExpandScreen.sys
+
+[ExpandScreen_Device.NT.Wdf]
+KmdfService =  ExpandScreen, ExpandScreen_wdfsect
+
+[ExpandScreen_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+; =================== Software Device Installation ============
+
+[ExpandScreen_Device.NT.HW]
+AddReg=ExpandScreen_Device.NT.HW.AddReg
+
+[ExpandScreen_Device.NT.HW.AddReg]
+HKR,,"UpperFilters",0x00010000,"IndirectKmd"
+HKR,,"IddCxAdapterType",0x00010001,1
+
+; =================== Strings =================================
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="ExpandScreen"
+ClassName="Display Adapters"
+DiskName="ExpandScreen Virtual Display Installation Disk"
+ExpandScreen.DeviceDesc="ExpandScreen Virtual Display Adapter"
+ExpandScreen.SVCDESC="ExpandScreen Virtual Display Service"

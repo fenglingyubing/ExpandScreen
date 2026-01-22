@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">ExpandScreen</string>
+
+    <!-- Main Screen -->
+    <string name="main_title">ExpandScreen</string>
+    <string name="main_subtitle">Extend your Windows display to Android</string>
+    <string name="connect_via_usb">Connect via USB</string>
+    <string name="connect_via_wifi">Connect via WiFi</string>
+    <string name="scan_qr_code">Scan QR Code</string>
+    <string name="settings">Settings</string>
+
+    <!-- Device List -->
+    <string name="recent_devices">Recent Devices</string>
+    <string name="favorite_devices">Favorites</string>
+    <string name="no_devices">No devices found</string>
+    <string name="device_connected">Connected</string>
+    <string name="device_disconnected">Disconnected</string>
+
+    <!-- Connection -->
+    <string name="connecting">Connecting…</string>
+    <string name="connection_failed">Connection failed</string>
+    <string name="connection_lost">Connection lost</string>
+    <string name="disconnect">Disconnect</string>
+
+    <!-- Display Screen -->
+    <string name="fps">FPS: %d</string>
+    <string name="latency">Latency: %dms</string>
+    <string name="connection_quality">Quality: %s</string>
+    <string name="quality_excellent">Excellent</string>
+    <string name="quality_good">Good</string>
+    <string name="quality_fair">Fair</string>
+    <string name="quality_poor">Poor</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="video_settings">Video Settings</string>
+    <string name="network_settings">Network Settings</string>
+    <string name="performance_settings">Performance Settings</string>
+    <string name="about">About</string>
+
+    <string name="resolution">Resolution</string>
+    <string name="frame_rate">Frame Rate</string>
+    <string name="quality_preset">Quality Preset</string>
+    <string name="performance_mode">Performance Mode</string>
+    <string name="low_latency_mode">Low Latency Mode</string>
+    <string name="keep_screen_on">Keep Screen On</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Display Service</string>
+    <string name="notification_channel_desc">Shows connection status and performance</string>
+    <string name="notification_connected">Connected to %s</string>
+    <string name="notification_streaming">Streaming: FPS %d | Latency %dms</string>
+
+    <!-- Errors -->
+    <string name="error_network">Network error</string>
+    <string name="error_decoder">Decoder error</string>
+    <string name="error_permission">Permission required</string>
+    <string name="error_unknown">Unknown error occurred</string>
+
+    <!-- Permissions -->
+    <string name="permission_rationale">ExpandScreen needs this permission to function properly</string>
+    <string name="grant_permission">Grant Permission</string>
+
+    <!-- About -->
+    <string name="version">Version %s</string>
+    <string name="licenses">Open Source Licenses</string>
+</resources>

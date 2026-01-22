@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme (Material3) -->
+    <style name="Theme.ExpandScreen" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Primary brand color (will be overridden by Compose theme) -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Full screen theme for DisplayActivity -->
+    <style name="Theme.ExpandScreen.FullScreen" parent="Theme.ExpandScreen">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>

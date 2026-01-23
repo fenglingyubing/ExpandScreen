@@ -50,7 +50,6 @@
             android:exported="false"
             android:theme="@style/Theme.ExpandScreen.FullScreen"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
-            android:screenOrientation="landscape"
             android:launchMode="singleTask" />
 
         <!-- Display Service (Foreground) -->

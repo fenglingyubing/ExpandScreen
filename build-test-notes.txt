@@ -254,6 +254,24 @@
 
 ---
 
+任务3.1.3构建要求:
+- .NET 8.0 SDK
+- Windows 10/11（Touch Injection API 仅Windows；测试为本地Loopback + 纯逻辑验证）
+
+构建/测试状态:
+✅ WIN-103（触控事件注入）相关代码已完成
+✅ .NET 构建与测试通过
+
+关键命令与输出（本地Windows）:
+1. .NET（解决方案测试）:
+   - `dotnet test ExpandScreen.sln -c Release`
+   - 结果：Passed 15, Skipped 9, Failed 0
+
+说明:
+- Skip 的用例为 “Requires FFmpeg native binaries …”/端到端性能类测试（依赖环境/设备）。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

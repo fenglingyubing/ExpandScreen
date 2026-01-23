@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Protocol.Network;
+using ExpandScreen.Services.Input;
 using ExpandScreen.Utils;
 
 namespace ExpandScreen.Services.Connection
@@ -16,6 +17,7 @@ namespace ExpandScreen.Services.Connection
         private readonly int _tcpPort;
         private readonly int _discoveryPort;
         private readonly bool _manageFirewallRules;
+        private readonly InputService? _inputService;
         private WifiDiscoveryResponder? _discoveryResponder;
 
         private TcpListener? _listener;
@@ -36,15 +38,18 @@ namespace ExpandScreen.Services.Connection
         public event EventHandler? ClientDisconnected;
         public event EventHandler<Exception>? ConnectionError;
         public event EventHandler<HandshakeMessage>? HandshakeReceived;
+        public event EventHandler<TouchEventMessage>? TouchEventReceived;
 
         public WifiConnection(
             int tcpPort = DefaultTcpPort,
             int discoveryPort = WifiDiscoveryResponder.DefaultDiscoveryPort,
-            bool manageFirewallRules = false)
+            bool manageFirewallRules = false,
+            InputService? inputService = null)
         {
             _tcpPort = tcpPort;
             _discoveryPort = discoveryPort;
             _manageFirewallRules = manageFirewallRules;
+            _inputService = inputService;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -192,9 +197,14 @@ namespace ExpandScreen.Services.Connection
                     handshakeRequestHandler: request =>
                     {
                         HandshakeReceived?.Invoke(this, request);
+                        if (request.ScreenWidth > 0 && request.ScreenHeight > 0)
+                        {
+                            _inputService?.UpdateRemoteScreenSize(request.ScreenWidth, request.ScreenHeight);
+                        }
                         return Task.FromResult((Accept: true, ErrorMessage: (string?)null));
                     });
 
+                session.MessageReceived += SessionOnMessageReceived;
                 session.ConnectionClosed += (s, e) => FireAndForget(ClearCurrentSessionAsync(), "ConnectionClosed");
 
                 session.HeartbeatTimeout += (s, e) => FireAndForget(ClearCurrentSessionAsync(), "HeartbeatTimeout");
@@ -213,8 +223,30 @@ namespace ExpandScreen.Services.Connection
             }
         }
 
+        private void SessionOnMessageReceived(object? sender, MessageReceivedEventArgs e)
+        {
+            if (e.Header.Type != MessageType.TouchEvent)
+            {
+                return;
+            }
+
+            var touch = MessageSerializer.DeserializeJsonPayload<TouchEventMessage>(e.Payload);
+            if (touch == null)
+            {
+                return;
+            }
+
+            TouchEventReceived?.Invoke(this, touch);
+            _inputService?.HandleTouchEvent(touch);
+        }
+
         private void ClearCurrentSessionNoLock()
         {
+            if (_currentSession != null)
+            {
+                _currentSession.MessageReceived -= SessionOnMessageReceived;
+            }
+
             _currentSession?.Dispose();
             _currentSession = null;
 

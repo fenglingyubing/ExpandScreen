@@ -48,4 +48,38 @@ class DeviceRepository @Inject constructor(
     suspend fun updateLastConnected(deviceId: Long) {
         deviceDao.updateLastConnected(deviceId, System.currentTimeMillis())
     }
+
+    suspend fun upsertConnectedDevice(
+        deviceName: String,
+        ipAddress: String?,
+        connectionType: String,
+    ): Long {
+        val now = System.currentTimeMillis()
+        val existing =
+            if (!ipAddress.isNullOrBlank()) {
+                deviceDao.findByIpAddress(ipAddress, connectionType)
+            } else {
+                deviceDao.findByNameAndType(deviceName, connectionType)
+            }
+
+        val entity =
+            if (existing != null) {
+                existing.copy(
+                    deviceName = deviceName,
+                    ipAddress = ipAddress,
+                    lastConnected = now,
+                    connectionType = connectionType,
+                )
+            } else {
+                WindowsDeviceEntity(
+                    deviceName = deviceName,
+                    ipAddress = ipAddress,
+                    lastConnected = now,
+                    isFavorite = false,
+                    connectionType = connectionType,
+                )
+            }
+
+        return deviceDao.insertDevice(entity)
+    }
 }

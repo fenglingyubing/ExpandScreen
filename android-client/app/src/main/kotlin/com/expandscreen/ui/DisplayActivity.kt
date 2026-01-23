@@ -181,6 +181,9 @@ class DisplayActivity : ComponentActivity() {
                     launch {
                         networkManager.connectionState.collect { state ->
                             uiState.update { it.copy(connectionState = state) }
+                            if (state == ConnectionState.Disconnected) {
+                                finish()
+                            }
                         }
                     }
 

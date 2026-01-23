@@ -22,6 +22,12 @@ interface DeviceDao {
     @Query("SELECT * FROM windows_devices WHERE id = :deviceId")
     suspend fun getDeviceById(deviceId: Long): WindowsDeviceEntity?
 
+    @Query("SELECT * FROM windows_devices WHERE ipAddress = :ipAddress AND connectionType = :connectionType LIMIT 1")
+    suspend fun findByIpAddress(ipAddress: String, connectionType: String): WindowsDeviceEntity?
+
+    @Query("SELECT * FROM windows_devices WHERE deviceName = :deviceName AND connectionType = :connectionType LIMIT 1")
+    suspend fun findByNameAndType(deviceName: String, connectionType: String): WindowsDeviceEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDevice(device: WindowsDeviceEntity): Long
 

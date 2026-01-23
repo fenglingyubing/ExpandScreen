@@ -14,9 +14,20 @@ namespace ExpandScreen.UI
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            // Minimize to tray instead of closing
-            e.Cancel = true;
-            Hide();
+            var app = Application.Current as App;
+            bool shuttingDown = app?.IsShuttingDown == true || Application.Current?.Dispatcher?.HasShutdownStarted == true;
+
+            if (!shuttingDown && ShouldMinimizeToTray())
+            {
+                // Minimize to tray instead of closing
+                e.Cancel = true;
+                Hide();
+            }
+            else
+            {
+                e.Cancel = false;
+            }
+
             base.OnClosing(e);
         }
 
@@ -53,8 +64,13 @@ namespace ExpandScreen.UI
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            // Hide to tray instead of closing
-            Hide();
+            if (ShouldMinimizeToTray())
+            {
+                Hide();
+                return;
+            }
+
+            Close();
         }
 
         private void MaximizeRestoreWindow()
@@ -78,6 +94,23 @@ namespace ExpandScreen.UI
                 {
                     mainViewModel.SelectedDevice = device;
                 }
+            }
+        }
+
+        private static bool ShouldMinimizeToTray()
+        {
+            if (Application.Current is not App app)
+            {
+                return true;
+            }
+
+            try
+            {
+                return app.ConfigService.GetSnapshot().General.MinimizeToTray;
+            }
+            catch
+            {
+                return true;
             }
         }
     }

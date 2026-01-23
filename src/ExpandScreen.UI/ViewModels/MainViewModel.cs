@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
+using ExpandScreen.Services.Configuration;
+using ExpandScreen.UI.Services;
 using ExpandScreen.UI.Views;
 
 namespace ExpandScreen.UI.ViewModels
@@ -25,6 +27,11 @@ namespace ExpandScreen.UI.ViewModels
 
             // Initialize with sample devices for demo
             InitializeSampleDevices();
+
+            if (Application.Current is App app)
+            {
+                IsDarkTheme = app.ConfigService.GetSnapshot().General.Theme == ThemeMode.Dark;
+            }
         }
 
         #region Properties
@@ -138,10 +145,20 @@ namespace ExpandScreen.UI.ViewModels
             settingsWindow.ShowDialog();
         }
 
-        private void ExecuteToggleTheme()
+        private async void ExecuteToggleTheme()
         {
-            IsDarkTheme = !IsDarkTheme;
-            ApplyTheme();
+            ThemeMode newTheme = IsDarkTheme ? ThemeMode.Light : ThemeMode.Dark;
+            ThemeManager.ApplyTheme(newTheme);
+            IsDarkTheme = newTheme == ThemeMode.Dark;
+
+            if (Application.Current is not App app)
+            {
+                return;
+            }
+
+            var updated = app.ConfigService.GetSnapshot();
+            updated.General.Theme = newTheme;
+            await app.ConfigService.SaveAsync(updated);
         }
 
         #endregion
@@ -165,24 +182,6 @@ namespace ExpandScreen.UI.ViewModels
                 IpAddress = "192.168.1.101",
                 Status = DeviceStatus.Disconnected
             });
-        }
-
-        private void ApplyTheme()
-        {
-            var app = System.Windows.Application.Current;
-            var themeDictionary = new ResourceDictionary();
-
-            if (IsDarkTheme)
-            {
-                themeDictionary.Source = new Uri("Themes/DarkTheme.xaml", UriKind.Relative);
-            }
-            else
-            {
-                themeDictionary.Source = new Uri("Themes/LightTheme.xaml", UriKind.Relative);
-            }
-
-            app.Resources.MergedDictionaries.Clear();
-            app.Resources.MergedDictionaries.Add(themeDictionary);
         }
 
         #endregion

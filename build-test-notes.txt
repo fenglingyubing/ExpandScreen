@@ -125,6 +125,9 @@
 1. Android（assemble + 单元测试）:
    - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --no-daemon; popd`
    - 结果：BUILD SUCCESSFUL（48 tasks, 9m 4s）
+2. Android（变更后复跑单元测试）:
+   - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:testDebugUnitTest --no-daemon; popd`
+   - 结果：BUILD SUCCESSFUL（31 tasks, 41s）
 
 说明:
 - 当前环境 `dotnet` SDK 未安装，未执行 `dotnet build/test`（本任务改动仅涉及 `android-client/`）。

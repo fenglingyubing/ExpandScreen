@@ -190,23 +190,38 @@ class GLRenderer(
         get() = decoderOutputSurface
 
     override fun release() {
-        runCatching { decoderOutputSurface?.release() }
+        val surfaceToRelease = decoderOutputSurface
         decoderOutputSurface = null
 
-        runCatching { surfaceTexture?.setOnFrameAvailableListener(null) }
-        runCatching { surfaceTexture?.release() }
+        val surfaceTextureToRelease = surfaceTexture
         surfaceTexture = null
 
-        if (oesTextureId != 0) {
-            val textures = intArrayOf(oesTextureId)
-            GLES20.glDeleteTextures(1, textures, 0)
-            oesTextureId = 0
+        val textureToDelete = oesTextureId
+        oesTextureId = 0
+
+        val programToDelete = programId
+        programId = 0
+
+        glViewRef?.get()?.let { glView ->
+            glView.queueEvent {
+                runCatching { surfaceToRelease?.release() }
+                runCatching { surfaceTextureToRelease?.setOnFrameAvailableListener(null) }
+                runCatching { surfaceTextureToRelease?.release() }
+
+                if (textureToDelete != 0) {
+                    GLES20.glDeleteTextures(1, intArrayOf(textureToDelete), 0)
+                }
+                if (programToDelete != 0) {
+                    GLES20.glDeleteProgram(programToDelete)
+                }
+            }
+            glView.requestRender()
+            return
         }
 
-        if (programId != 0) {
-            GLES20.glDeleteProgram(programId)
-            programId = 0
-        }
+        runCatching { surfaceToRelease?.release() }
+        runCatching { surfaceTextureToRelease?.setOnFrameAvailableListener(null) }
+        runCatching { surfaceTextureToRelease?.release() }
     }
 
     private fun updateMvpMatrix() {

@@ -29,7 +29,7 @@
 ### 4. VideoEncoderFactory 类
 编码器工厂,支持:
 - 自动选择最优编码器
-- 为未来硬件编码(NVENC/QuickSync)做准备
+- 支持硬件编码(NVENC/QuickSync)并自动回退
 - 根据系统推荐配置
 
 ### 5. VideoEncodingService 类
@@ -252,8 +252,9 @@ FFmpeg.AutoGen.ffmpeg.RootPath = @"C:\ffmpeg\bin";
 ## 未来改进
 
 1. **硬件编码支持**
-   - NVIDIA NVENC (计划中)
-   - Intel QuickSync (计划中)
+   - ✅ NVIDIA NVENC（通过 `h264_nvenc`）
+   - ✅ Intel QuickSync（通过 `h264_qsv`）
+   - ⏳ D3D11/零拷贝路径（后续优化）
 
 2. **编码优化**
    - 多线程编码

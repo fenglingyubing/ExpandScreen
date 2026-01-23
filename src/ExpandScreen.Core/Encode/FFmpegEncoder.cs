@@ -9,6 +9,9 @@ namespace ExpandScreen.Core.Encode
     /// </summary>
     public unsafe class FFmpegEncoder : IVideoEncoder
     {
+        private readonly string? _preferredEncoderName;
+        private readonly AVPixelFormat _targetPixelFormat;
+
         private AVCodec* _codec;
         private AVCodecContext* _codecContext;
         private AVFrame* _frame;
@@ -40,6 +43,8 @@ namespace ExpandScreen.Core.Encode
         public FFmpegEncoder()
         {
             _config = VideoEncoderConfig.CreateDefault();
+            _preferredEncoderName = null;
+            _targetPixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
         }
 
         /// <summary>
@@ -48,6 +53,18 @@ namespace ExpandScreen.Core.Encode
         public FFmpegEncoder(VideoEncoderConfig config)
         {
             _config = config ?? VideoEncoderConfig.CreateDefault();
+            _preferredEncoderName = null;
+            _targetPixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
+        }
+
+        /// <summary>
+        /// 构造函数（用于派生硬件编码器）
+        /// </summary>
+        protected FFmpegEncoder(VideoEncoderConfig config, string? preferredEncoderName, AVPixelFormat targetPixelFormat)
+        {
+            _config = config ?? VideoEncoderConfig.CreateDefault();
+            _preferredEncoderName = string.IsNullOrWhiteSpace(preferredEncoderName) ? null : preferredEncoderName;
+            _targetPixelFormat = targetPixelFormat;
         }
 
         /// <summary>
@@ -71,13 +88,16 @@ namespace ExpandScreen.Core.Encode
                     _config.Framerate = framerate;
                     _config.Bitrate = bitrate;
 
-                    LogHelper.Info($"初始化FFmpeg编码器: {width}x{height}@{framerate}fps, {bitrate}bps");
+                    var encoderLabel = _preferredEncoderName ?? "h264(default)";
+                    LogHelper.Info($"初始化FFmpeg编码器({encoderLabel}): {width}x{height}@{framerate}fps, {bitrate}bps");
 
                     // 查找H.264编码器
-                    _codec = ffmpeg.avcodec_find_encoder(AVCodecID.AV_CODEC_ID_H264);
+                    _codec = _preferredEncoderName != null
+                        ? FFmpegEncoderCapabilities.TryFindEncoderByName(_preferredEncoderName)
+                        : ffmpeg.avcodec_find_encoder(AVCodecID.AV_CODEC_ID_H264);
                     if (_codec == null)
                     {
-                        throw new Exception("未找到H.264编码器");
+                        throw new Exception($"未找到编码器: {encoderLabel}");
                     }
 
                     // 创建编码器上下文
@@ -95,7 +115,7 @@ namespace ExpandScreen.Core.Encode
                     _codecContext->bit_rate = bitrate;
                     _codecContext->gop_size = _config.KeyFrameInterval;
                     _codecContext->max_b_frames = _config.MaxBFrames;
-                    _codecContext->pix_fmt = AVPixelFormat.AV_PIX_FMT_YUV420P;
+                    _codecContext->pix_fmt = _targetPixelFormat;
 
                     // 线程配置
                     if (_config.ThreadCount > 0)
@@ -104,9 +124,10 @@ namespace ExpandScreen.Core.Encode
                     }
 
                     // 设置编码参数
-                    ffmpeg.av_opt_set(_codecContext->priv_data, "preset", _config.Preset, 0);
-                    ffmpeg.av_opt_set(_codecContext->priv_data, "tune", _config.Tune, 0);
-                    ffmpeg.av_opt_set(_codecContext->priv_data, "profile", _config.Profile, 0);
+                    TrySetCodecOption(_codecContext, "preset", _config.Preset);
+                    TrySetCodecOption(_codecContext, "tune", _config.Tune);
+                    TrySetCodecOption(_codecContext, "profile", _config.Profile);
+                    ConfigureCodecOptions(_codecContext);
 
                     // 打开编码器
                     int ret = ffmpeg.avcodec_open2(_codecContext, _codec, null);
@@ -139,10 +160,10 @@ namespace ExpandScreen.Core.Encode
                         throw new Exception("无法分配数据包");
                     }
 
-                    // 初始化像素格式转换上下文（BGRA -> YUV420P）
+                    // 初始化像素格式转换上下文（BGRA -> 目标像素格式）
                     _swsContext = ffmpeg.sws_getContext(
                         width, height, AVPixelFormat.AV_PIX_FMT_BGRA,
-                        width, height, AVPixelFormat.AV_PIX_FMT_YUV420P,
+                        width, height, _targetPixelFormat,
                         ffmpeg.SWS_FAST_BILINEAR, null, null, null);
 
                     if (_swsContext == null)
@@ -159,6 +180,34 @@ namespace ExpandScreen.Core.Encode
                     Dispose();
                     throw;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 派生类可覆盖以设置硬件编码器特定参数（尽量使用TrySetCodecOption，失败不应阻断初始化）。
+        /// </summary>
+        protected virtual void ConfigureCodecOptions(AVCodecContext* codecContext)
+        {
+        }
+
+        private static void TrySetCodecOption(AVCodecContext* codecContext, string key, string value)
+        {
+            if (codecContext == null || codecContext->priv_data == null)
+            {
+                return;
+            }
+
+            try
+            {
+                int ret = ffmpeg.av_opt_set(codecContext->priv_data, key, value, 0);
+                if (ret < 0)
+                {
+                    LogHelper.Debug($"设置编码参数失败: {key}={value}, err={ret}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Debug($"设置编码参数异常: {key}={value}, ex={ex.Message}");
             }
         }
 

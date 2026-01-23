@@ -13,12 +13,12 @@ namespace ExpandScreen.Core.Encode
         FFmpeg,
 
         /// <summary>
-        /// NVIDIA NVENC硬件编码（待实现）
+        /// NVIDIA NVENC硬件编码（通过FFmpeg h264_nvenc）
         /// </summary>
         NVENC,
 
         /// <summary>
-        /// Intel QuickSync硬件编码（待实现）
+        /// Intel QuickSync硬件编码（通过FFmpeg h264_qsv）
         /// </summary>
         QuickSync,
 
@@ -51,11 +51,23 @@ namespace ExpandScreen.Core.Encode
                     return new FFmpegEncoder(config);
 
                 case EncoderType.NVENC:
-                    LogHelper.Warning("NVENC硬件编码器尚未实现，回退到FFmpeg");
+                    if (FFmpegEncoderCapabilities.IsEncoderAvailable(NvencEncoder.EncoderName))
+                    {
+                        LogHelper.Info("创建NVENC硬件编码器");
+                        return new NvencEncoder(config);
+                    }
+
+                    LogHelper.Warning("NVENC硬件编码器不可用（FFmpeg未启用或环境不支持），回退到FFmpeg");
                     return new FFmpegEncoder(config);
 
                 case EncoderType.QuickSync:
-                    LogHelper.Warning("QuickSync硬件编码器尚未实现，回退到FFmpeg");
+                    if (FFmpegEncoderCapabilities.IsEncoderAvailable(QuickSyncEncoder.EncoderName))
+                    {
+                        LogHelper.Info("创建QuickSync硬件编码器");
+                        return new QuickSyncEncoder(config);
+                    }
+
+                    LogHelper.Warning("QuickSync硬件编码器不可用（FFmpeg未启用或环境不支持），回退到FFmpeg");
                     return new FFmpegEncoder(config);
 
                 case EncoderType.Auto:
@@ -73,63 +85,8 @@ namespace ExpandScreen.Core.Encode
         /// </summary>
         private static IVideoEncoder CreateAutoEncoder(VideoEncoderConfig config)
         {
-            LogHelper.Info("自动选择编码器...");
-
-            // TODO: 检测NVIDIA GPU
-            if (IsNVENCAvailable())
-            {
-                LogHelper.Info("检测到NVIDIA GPU，使用NVENC编码器");
-                // return new NvencEncoder(config); // 待实现
-            }
-
-            // TODO: 检测Intel GPU
-            if (IsQuickSyncAvailable())
-            {
-                LogHelper.Info("检测到Intel GPU，使用QuickSync编码器");
-                // return new QuickSyncEncoder(config); // 待实现
-            }
-
-            // 回退到FFmpeg软件编码
-            LogHelper.Info("使用FFmpeg软件编码器");
-            return new FFmpegEncoder(config);
-        }
-
-        /// <summary>
-        /// 检测NVENC是否可用
-        /// </summary>
-        private static bool IsNVENCAvailable()
-        {
-            try
-            {
-                // TODO: 实现NVENC检测逻辑
-                // 检查是否有NVIDIA GPU
-                // 检查驱动版本是否支持NVENC
-                return false;
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Debug($"NVENC检测失败: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 检测QuickSync是否可用
-        /// </summary>
-        private static bool IsQuickSyncAvailable()
-        {
-            try
-            {
-                // TODO: 实现QuickSync检测逻辑
-                // 检查是否有Intel GPU
-                // 检查是否支持QuickSync
-                return false;
-            }
-            catch (Exception ex)
-            {
-                LogHelper.Debug($"QuickSync检测失败: {ex.Message}");
-                return false;
-            }
+            LogHelper.Info("创建自动选择编码器（Initialize时按优先级尝试并回退）");
+            return new AutoVideoEncoder(config);
         }
 
         /// <summary>

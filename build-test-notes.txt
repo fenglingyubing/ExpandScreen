@@ -199,6 +199,27 @@
 - Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
 - Gradle Wrapper（`android-client/gradlew`）
 
+---
+
+任务3.1.2构建要求:
+- .NET 8.0 SDK
+- FFmpeg native binaries（仅影响硬编/视频编码相关测试；无FFmpeg native 时相关测试会 Skip）
+
+构建/测试状态:
+✅ Windows端硬件编码支持（WIN-102）已完成并通过基础构建/测试
+
+关键命令与输出（本地Windows）:
+1. .NET（Core 编译）:
+   - `dotnet build src/ExpandScreen.Core/ExpandScreen.Core.csproj -c Release`
+   - 结果：Build succeeded（0 warnings, 0 errors）
+
+2. .NET（集成测试）:
+   - `dotnet test src/ExpandScreen.IntegrationTests/ExpandScreen.IntegrationTests.csproj -c Release`
+   - 结果：Passed 11, Skipped 9, Failed 0
+
+说明:
+- 跳过的测试为 “Requires FFmpeg native binaries …” 标注的用例（需要 runner 上提供 FFmpeg DLL）。
+
 构建/测试状态:
 ✅ Android 集成测试和调试（AND-008）构建与单元测试通过
 

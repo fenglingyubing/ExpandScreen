@@ -113,6 +113,24 @@
 
 ---
 
+任务2.2.4构建要求:
+- JDK 17+（Gradle 8.x 需要较新JDK）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+
+构建/测试状态:
+✅ Android OpenGL渲染模块（AND-004）构建与单元测试通过
+
+关键命令与输出（本地Windows）:
+1. Android（assemble + 单元测试）:
+   - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --no-daemon; popd`
+   - 结果：BUILD SUCCESSFUL（48 tasks, 9m 4s）
+
+说明:
+- 当前环境 `dotnet` SDK 未安装，未执行 `dotnet build/test`（本任务改动仅涉及 `android-client/`）。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

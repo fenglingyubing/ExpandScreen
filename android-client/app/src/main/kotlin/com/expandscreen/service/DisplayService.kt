@@ -4,12 +4,36 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
+import android.view.Surface
 import androidx.core.app.NotificationCompat
+import com.expandscreen.core.decoder.EncodedFrame
+import com.expandscreen.core.decoder.FrameBufferPool
+import com.expandscreen.core.decoder.H264Decoder
+import com.expandscreen.core.decoder.VideoDecoderConfig
+import com.expandscreen.core.network.ConnectionState
+import com.expandscreen.core.network.IncomingMessage
+import com.expandscreen.core.network.NetworkManager
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 
 /**
@@ -24,15 +48,63 @@ import timber.log.Timber
 @AndroidEntryPoint
 class DisplayService : Service() {
 
+    @Inject lateinit var networkManager: NetworkManager
+
     private val binder = DisplayServiceBinder()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val processingMutex = Mutex()
 
     companion object {
+        const val ACTION_START = "com.expandscreen.action.DISPLAY_START"
+        const val ACTION_STOP = "com.expandscreen.action.DISPLAY_STOP"
+        const val ACTION_DISCONNECT_AND_STOP = "com.expandscreen.action.DISPLAY_DISCONNECT_AND_STOP"
+
         private const val NOTIFICATION_CHANNEL_ID = "expandscreen_display"
         private const val NOTIFICATION_ID = 1001
+
+        fun startIntent(context: Context): Intent {
+            return Intent(context, DisplayService::class.java).setAction(ACTION_START)
+        }
+
+        fun disconnectAndStopIntent(context: Context): Intent {
+            return Intent(context, DisplayService::class.java).setAction(ACTION_DISCONNECT_AND_STOP)
+        }
     }
+
+    private val decoder = H264Decoder()
+    private val frameBufferPool = FrameBufferPool()
+
+    private val decoderInitLock = Any()
+
+    @Volatile
+    private var decoderInitialized = false
+
+    @Volatile
+    private var outputSurface: Surface? = null
+
+    private var processingJob: Job? = null
+    private var connectionJob: Job? = null
+    private var notificationJob: Job? = null
+
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    private val _state = MutableStateFlow(DisplayServiceState())
+    val state: StateFlow<DisplayServiceState> = _state.asStateFlow()
 
     inner class DisplayServiceBinder : Binder() {
         fun getService(): DisplayService = this@DisplayService
+
+        fun disconnect() {
+            this@DisplayService.disconnect()
+        }
+
+        fun setDecoderOutputSurface(surface: Surface?) {
+            this@DisplayService.setDecoderOutputSurface(surface)
+        }
+
+        fun stopAndCleanup() {
+            this@DisplayService.stopAndCleanup(reason = "binder-stop")
+        }
     }
 
     override fun onCreate() {
@@ -42,14 +114,31 @@ class DisplayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Timber.d("DisplayService started")
+        val action = intent?.action
+        Timber.d("DisplayService onStartCommand action=$action")
+
+        when (action) {
+            ACTION_STOP -> {
+                stopAndCleanup(reason = "intent-stop")
+                return START_NOT_STICKY
+            }
+
+            ACTION_DISCONNECT_AND_STOP -> {
+                disconnect()
+                stopAndCleanup(reason = "intent-disconnect-and-stop")
+                return START_NOT_STICKY
+            }
+
+            ACTION_START, null -> {
+                // Continue below.
+            }
+
+            else -> Timber.w("Unknown action=$action")
+        }
 
         // Start foreground service with notification
-        val notification = createNotification()
-        startForeground(NOTIFICATION_ID, notification)
-
-        // TODO: Start data processing loop
-        // - Network receive → Decode → Render
+        startForeground(NOTIFICATION_ID, buildNotification(_state.value))
+        startProcessingIfNeeded()
 
         return START_STICKY
     }
@@ -61,7 +150,7 @@ class DisplayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("DisplayService destroyed")
-        // TODO: Release all resources
+        stopAndCleanup(reason = "onDestroy")
     }
 
     private fun createNotificationChannel() {
@@ -79,29 +168,180 @@ class DisplayService : Service() {
         }
     }
 
-    private fun createNotification(): Notification {
+    private fun buildNotification(state: DisplayServiceState): Notification {
+        val statusText =
+            when (state.connectionState) {
+                ConnectionState.Connecting -> "Connecting…"
+                is ConnectionState.Connected -> {
+                    val error = state.lastError?.let { " • ERR" } ?: ""
+                    "Streaming • ${state.fps} FPS • ${state.latencyMs}ms$error"
+                }
+                ConnectionState.Disconnected -> "Disconnected"
+            }
+
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle("ExpandScreen")
-            .setContentText("Connected and streaming")
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // TODO: Use custom icon
+            .setContentText(statusText)
+            .setSmallIcon(com.expandscreen.R.drawable.ic_stat_expandscreen)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
     }
 
-    /**
-     * Update notification with real-time info
-     */
-    fun updateNotification(fps: Int, latency: Int) {
-        val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("ExpandScreen - Active")
-            .setContentText("FPS: $fps | Latency: ${latency}ms")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
+    fun setDecoderOutputSurface(surface: Surface?) {
+        outputSurface = surface
+        synchronized(decoderInitLock) {
+            decoderInitialized = false
+        }
+    }
 
-        val notificationManager = getSystemService(NotificationManager::class.java)
-        notificationManager.notify(NOTIFICATION_ID, notification)
+    fun disconnect() {
+        networkManager.disconnect()
+    }
+
+    private fun startProcessingIfNeeded() {
+        serviceScope.launch {
+            processingMutex.withLock {
+                if (processingJob?.isActive == true) return@withLock
+                acquireWakeLock()
+                startNotificationUpdates()
+                startConnectionCollector()
+                startVideoCollector()
+            }
+        }
+    }
+
+    private fun startConnectionCollector() {
+        connectionJob?.cancel()
+        connectionJob =
+            serviceScope.launch(Dispatchers.Default) {
+                var everConnected = false
+                networkManager.connectionState.collect { connectionState ->
+                    _state.value =
+                        _state.value.copy(
+                            connectionState = connectionState,
+                            lastError = if (connectionState is ConnectionState.Connected) null else _state.value.lastError,
+                        )
+                    if (connectionState is ConnectionState.Connected) {
+                        everConnected = true
+                    }
+                    if (connectionState == ConnectionState.Disconnected && everConnected) {
+                        stopAndCleanup(reason = "disconnected")
+                    }
+                }
+            }
+    }
+
+    private fun startVideoCollector() {
+        processingJob?.cancel()
+        processingJob =
+            serviceScope.launch(Dispatchers.Default) {
+                var windowStartMs = System.currentTimeMillis()
+                var framesInWindow = 0
+
+                networkManager.incomingMessages.collect { incoming ->
+                    if (incoming !is IncomingMessage.VideoFrame) return@collect
+
+                    runCatching {
+                        val nowMs = System.currentTimeMillis()
+                        val latencyMs = (nowMs - incoming.timestampMs).coerceAtLeast(0).toInt()
+
+                        _state.value =
+                            _state.value.copy(
+                                latencyMs = latencyMs,
+                                videoWidth = incoming.message.width,
+                                videoHeight = incoming.message.height,
+                            )
+
+                        val surface = outputSurface
+                        if (surface != null && ensureDecoderInitialized(incoming.message.width, incoming.message.height, surface)) {
+                            val encodedFrame =
+                                EncodedFrame.fromMessage(
+                                    message = incoming.message,
+                                    timestampMs = incoming.timestampMs,
+                                    pool = frameBufferPool,
+                                )
+                            decoder.enqueueFrame(encodedFrame)
+                        }
+
+                        framesInWindow += 1
+                        val elapsedMs = nowMs - windowStartMs
+                        if (elapsedMs >= 1_000L) {
+                            val fps = (framesInWindow * 1000f / elapsedMs.toFloat()).roundToInt()
+                            _state.value = _state.value.copy(fps = fps)
+                            framesInWindow = 0
+                            windowStartMs = nowMs
+                        }
+                    }.onFailure { err ->
+                        Timber.e(err, "Video processing failed")
+                        _state.value = _state.value.copy(lastError = err.message ?: err.javaClass.simpleName)
+                        runCatching { decoder.flush() }
+                    }
+                }
+            }
+    }
+
+    private fun startNotificationUpdates() {
+        notificationJob?.cancel()
+        notificationJob =
+            serviceScope.launch(Dispatchers.Default) {
+                val manager = getSystemService(NotificationManager::class.java)
+                while (isActive) {
+                    manager.notify(NOTIFICATION_ID, buildNotification(state.value))
+                    delay(1_000)
+                }
+            }
+    }
+
+    private fun ensureDecoderInitialized(width: Int, height: Int, surface: Surface): Boolean {
+        synchronized(decoderInitLock) {
+            if (decoderInitialized) return true
+            decoder.initialize(
+                VideoDecoderConfig(
+                    width = width.coerceAtLeast(1),
+                    height = height.coerceAtLeast(1),
+                    outputSurface = surface,
+                ),
+            )
+            decoderInitialized = true
+            return true
+        }
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val power = getSystemService(PowerManager::class.java)
+        wakeLock =
+            power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ExpandScreen:DisplayService").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+    }
+
+    private fun releaseWakeLock() {
+        val lock = wakeLock ?: return
+        wakeLock = null
+        runCatching {
+            if (lock.isHeld) lock.release()
+        }.onFailure { Timber.w(it, "WakeLock release failed") }
+    }
+
+    private fun stopAndCleanup(reason: String) {
+        Timber.i("DisplayService stopAndCleanup reason=$reason")
+        processingJob?.cancel()
+        processingJob = null
+        connectionJob?.cancel()
+        connectionJob = null
+        notificationJob?.cancel()
+        notificationJob = null
+
+        synchronized(decoderInitLock) {
+            decoderInitialized = false
+        }
+        decoder.release()
+        releaseWakeLock()
+
+        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
+        stopSelf()
     }
 }

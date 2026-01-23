@@ -173,6 +173,27 @@
 
 ---
 
+任务2.2.7构建要求:
+- JDK 17+（Gradle 8.x 需要较新JDK）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+
+构建/测试状态:
+✅ Android 后台服务开发（AND-007）构建与单元测试通过
+
+关键命令与输出（本地Windows）:
+1. Android（assemble + 单元测试）:
+   - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --no-daemon; popd`
+   - 结果：BUILD SUCCESSFUL in 1m 27s（48 actionable tasks）
+2. Android（变更后复跑单元测试）:
+   - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:testDebugUnitTest --no-daemon; popd`
+   - 结果：BUILD SUCCESSFUL in 42s（31 actionable tasks）
+
+说明:
+- 使用 JDK 8 会导致 Gradle 8.2 启动失败，本任务固定使用 JDK 21 执行构建与测试。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

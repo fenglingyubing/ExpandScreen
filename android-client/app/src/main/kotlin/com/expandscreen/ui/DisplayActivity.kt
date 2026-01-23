@@ -3,6 +3,10 @@ package com.expandscreen.ui
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.opengl.GLSurfaceView
+import android.content.ComponentName
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -39,25 +43,20 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.expandscreen.core.decoder.EncodedFrame
-import com.expandscreen.core.decoder.FrameBufferPool
-import com.expandscreen.core.decoder.H264Decoder
-import com.expandscreen.core.decoder.VideoDecoderConfig
 import com.expandscreen.core.network.ConnectionState
-import com.expandscreen.core.network.IncomingMessage
-import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.renderer.GLRenderer
+import com.expandscreen.service.DisplayService
 import com.expandscreen.ui.theme.ExpandScreenTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -71,39 +70,36 @@ import timber.log.Timber
 @AndroidEntryPoint
 class DisplayActivity : ComponentActivity() {
 
-    @Inject lateinit var networkManager: NetworkManager
-
     private val uiState = MutableStateFlow(DisplayUiState())
 
     private var glSurfaceView: GLSurfaceView? = null
-    private val frameBufferPool = FrameBufferPool()
-    private val decoder = H264Decoder()
 
-    private val decoderInitLock = Any()
-
-    @Volatile
-    private var decoderInitialized = false
-
-    @Volatile
-    private var decoderSurfaceReady = false
-
-    @Volatile
-    private var lastVideoWidth = 0
-
-    @Volatile
-    private var lastVideoHeight = 0
+    private val boundService = MutableStateFlow<DisplayService?>(null)
+    @Volatile private var pendingDecoderSurface: android.view.Surface? = null
+    @Volatile private var isServiceBound: Boolean = false
 
     private val renderer =
         GLRenderer(
-            onDecoderSurfaceReady = { _ ->
-                decoderSurfaceReady = true
-                synchronized(decoderInitLock) {
-                    decoderInitialized = false
-                }
+            onDecoderSurfaceReady = { surface ->
+                pendingDecoderSurface = surface
+                boundService.value?.setDecoderOutputSurface(surface)
             },
         )
 
     private var collectJob: Job? = null
+
+    private val serviceConnection =
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+                val local = binder as? DisplayService.DisplayServiceBinder ?: return
+                boundService.value = local.getService()
+                pendingDecoderSurface?.let { surface -> boundService.value?.setDecoderOutputSurface(surface) }
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                boundService.value = null
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,7 +122,10 @@ class DisplayActivity : ComponentActivity() {
                     DisplayScreen(
                         uiState = uiState,
                         onExit = {
-                            networkManager.disconnect()
+                            boundService.value?.disconnect()
+                            runCatching {
+                                startService(DisplayService.disconnectAndStopIntent(this@DisplayActivity))
+                            }
                             finish()
                         },
                         onToggleHud = { uiState.update { it.copy(showHud = !it.showHud) } },
@@ -164,7 +163,18 @@ class DisplayActivity : ComponentActivity() {
                 ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
             } else {
                 ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        ContextCompat.startForegroundService(this, DisplayService.startIntent(this))
+        isServiceBound =
+            bindService(
+                Intent(this, DisplayService::class.java),
+                serviceConnection,
+                BIND_AUTO_CREATE,
+            )
     }
 
     override fun onResume() {
@@ -178,61 +188,34 @@ class DisplayActivity : ComponentActivity() {
         collectJob =
             lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    launch {
-                        networkManager.connectionState.collect { state ->
-                            uiState.update { it.copy(connectionState = state) }
-                            if (state == ConnectionState.Disconnected) {
-                                finish()
-                            }
-                        }
-                    }
-
                     launch(Dispatchers.Default) {
-                        var windowStartMs = System.currentTimeMillis()
-                        var framesInWindow = 0
-
-                        networkManager.incomingMessages.collect { message ->
-                            if (message !is IncomingMessage.VideoFrame) return@collect
-
-                            val nowMs = System.currentTimeMillis()
-                            val latencyMs = (nowMs - message.timestampMs).coerceAtLeast(0).toInt()
-
-                            lastVideoWidth = message.message.width
-                            lastVideoHeight = message.message.height
-                            renderer.setVideoSize(message.message.width, message.message.height)
-
-                            if (!decoderSurfaceReady) {
-                                uiState.update { it.copy(latencyMs = latencyMs) }
-                                return@collect
-                            }
-
-                            if (!ensureDecoderInitialized(message.message.width, message.message.height)) {
-                                uiState.update { it.copy(latencyMs = latencyMs) }
-                                return@collect
-                            }
-
-                            val encodedFrame =
-                                EncodedFrame.fromMessage(
-                                    message = message.message,
-                                    timestampMs = message.timestampMs,
-                                    pool = frameBufferPool,
-                                )
-                            decoder.enqueueFrame(encodedFrame)
-
-                            framesInWindow += 1
-                            val elapsedMs = nowMs - windowStartMs
-                            if (elapsedMs >= 1_000L) {
-                                val fps = (framesInWindow * 1000f / elapsedMs.toFloat()).roundToInt()
-                                uiState.update { it.copy(fps = fps, latencyMs = latencyMs) }
-                                framesInWindow = 0
-                                windowStartMs = nowMs
-                            } else {
-                                uiState.update { it.copy(latencyMs = latencyMs) }
+                        boundService.filterNotNull().collect { bound ->
+                            bound.state.collect { snapshot ->
+                                renderer.setVideoSize(snapshot.videoWidth, snapshot.videoHeight)
+                                uiState.update {
+                                    it.copy(
+                                        fps = snapshot.fps,
+                                        latencyMs = snapshot.latencyMs,
+                                        connectionState = snapshot.connectionState,
+                                    )
+                                }
+                                if (snapshot.connectionState == ConnectionState.Disconnected) {
+                                    finish()
+                                }
                             }
                         }
                     }
                 }
             }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isServiceBound) {
+            runCatching { unbindService(serviceConnection) }
+            isServiceBound = false
+        }
+        boundService.value = null
     }
 
     override fun onPause() {
@@ -241,7 +224,7 @@ class DisplayActivity : ComponentActivity() {
         collectJob?.cancel()
         collectJob = null
         glSurfaceView?.onPause()
-        decoder.flush()
+        boundService.value?.setDecoderOutputSurface(null)
     }
 
     override fun onDestroy() {
@@ -250,7 +233,6 @@ class DisplayActivity : ComponentActivity() {
         collectJob?.cancel()
         collectJob = null
 
-        decoder.release()
         renderer.release()
     }
 
@@ -258,22 +240,6 @@ class DisplayActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             setupFullScreen()
-        }
-    }
-
-    private fun ensureDecoderInitialized(width: Int, height: Int): Boolean {
-        synchronized(decoderInitLock) {
-            if (decoderInitialized) return true
-            val surface = renderer.decoderSurface ?: return false
-            decoder.initialize(
-                VideoDecoderConfig(
-                    width = width.coerceAtLeast(1),
-                    height = height.coerceAtLeast(1),
-                    outputSurface = surface,
-                ),
-            )
-            decoderInitialized = true
-            return true
         }
     }
 

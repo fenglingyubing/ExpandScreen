@@ -197,6 +197,13 @@ class DisplayActivity : ComponentActivity() {
                                         fps = snapshot.fps,
                                         latencyMs = snapshot.latencyMs,
                                         connectionState = snapshot.connectionState,
+                                        memoryPssMb = snapshot.memoryPssMb,
+                                        cpuUsagePercent = snapshot.cpuUsagePercent,
+                                        decoderQueuedFrames = snapshot.decoderQueuedFrames,
+                                        decoderDroppedFrames = snapshot.decoderDroppedFrames,
+                                        decoderSkippedNonKeyFrames = snapshot.decoderSkippedNonKeyFrames,
+                                        decoderCodecResets = snapshot.decoderCodecResets,
+                                        decoderReconfigures = snapshot.decoderReconfigures,
                                     )
                                 }
                                 if (snapshot.connectionState == ConnectionState.Disconnected) {
@@ -251,6 +258,13 @@ class DisplayActivity : ComponentActivity() {
 private data class DisplayUiState(
     val fps: Int = 0,
     val latencyMs: Int = 0,
+    val memoryPssMb: Int = 0,
+    val cpuUsagePercent: Int = 0,
+    val decoderQueuedFrames: Int = 0,
+    val decoderDroppedFrames: Long = 0,
+    val decoderSkippedNonKeyFrames: Long = 0,
+    val decoderCodecResets: Long = 0,
+    val decoderReconfigures: Long = 0,
     val connectionState: ConnectionState = ConnectionState.Disconnected,
     val showHud: Boolean = true,
     val showMenu: Boolean = false,
@@ -363,6 +377,20 @@ private fun HudPanel(
             fontFamily = FontFamily.Monospace,
         )
         Text(
+            text = "MEM ${state.memoryPssMb}MB  •  CPU ${state.cpuUsagePercent}%",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFB8C7D9),
+            fontFamily = FontFamily.Monospace,
+        )
+        Text(
+            text =
+                "DEC Q${state.decoderQueuedFrames}  DROP ${state.decoderDroppedFrames}  " +
+                    "KF ${state.decoderSkippedNonKeyFrames}  RST ${state.decoderCodecResets}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFB9FFEA),
+            fontFamily = FontFamily.Monospace,
+        )
+        Text(
             text = "LINK $connectionText",
             style = MaterialTheme.typography.bodyMedium,
             color = Color(0xFFB9FFEA),
@@ -403,9 +431,21 @@ private fun MenuPanel(
         )
 
         Text(
-            text = "$connectionText • ${state.fps} FPS • ${state.latencyMs}ms",
+            text =
+                "$connectionText • ${state.fps} FPS • ${state.latencyMs}ms • " +
+                    "${state.memoryPssMb}MB • ${state.cpuUsagePercent}% CPU",
             style = MaterialTheme.typography.bodyMedium,
             color = Color(0xFFB9FFEA),
+            fontFamily = FontFamily.Monospace,
+        )
+
+        Text(
+            text =
+                "Decoder: Q${state.decoderQueuedFrames} • DROP ${state.decoderDroppedFrames} • " +
+                    "SKIP ${state.decoderSkippedNonKeyFrames} • RST ${state.decoderCodecResets} • " +
+                    "CFG ${state.decoderReconfigures}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFFB8C7D9),
             fontFamily = FontFamily.Monospace,
         )
 

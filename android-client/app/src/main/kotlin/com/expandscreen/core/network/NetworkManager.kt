@@ -49,6 +49,7 @@ import javax.inject.Singleton
 @Singleton
 class NetworkManager @Inject constructor(
     private val usbConnection: UsbConnection,
+    private val config: NetworkManagerConfig = NetworkManagerConfig(),
 ) : Closeable {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -79,11 +80,11 @@ class NetworkManager @Inject constructor(
 
     private var lastHeartbeatReceivedAtMs: Long = 0
 
-    private val maxPayloadBytes = 10 * 1024 * 1024
-    private val connectTimeoutMs = 5_000
-    private val handshakeTimeoutMs = 5_000
-    private val heartbeatIntervalMs = 5_000L
-    private val heartbeatTimeoutMs = 15_000L
+    private val maxPayloadBytes = config.maxPayloadBytes
+    private val connectTimeoutMs = config.connectTimeoutMs
+    private val handshakeTimeoutMs = config.handshakeTimeoutMs
+    private val heartbeatIntervalMs = config.heartbeatIntervalMs
+    private val heartbeatTimeoutMs = config.heartbeatTimeoutMs
 
     /**
      * Connect to Windows PC via USB
@@ -406,6 +407,14 @@ class NetworkManager @Inject constructor(
         }
     }
 }
+
+data class NetworkManagerConfig(
+    val maxPayloadBytes: Int = 10 * 1024 * 1024,
+    val connectTimeoutMs: Int = 5_000,
+    val handshakeTimeoutMs: Int = 5_000,
+    val heartbeatIntervalMs: Long = 5_000L,
+    val heartbeatTimeoutMs: Long = 15_000L,
+)
 
 sealed interface ConnectionState {
     data object Disconnected : ConnectionState

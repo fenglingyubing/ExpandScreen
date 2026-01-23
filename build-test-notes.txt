@@ -194,6 +194,24 @@
 
 ---
 
+任务2.2.8构建要求:
+- JDK 17+（Gradle 8.x 需要较新JDK）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+
+构建/测试状态:
+✅ Android 集成测试和调试（AND-008）构建与单元测试通过
+
+关键命令与输出（本地Windows）:
+1. Android（assemble + 单元测试）:
+   - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --no-daemon; popd`
+   - 结果：BUILD SUCCESSFUL in 29s（48 actionable tasks: 7 executed, 41 up-to-date）
+
+说明:
+- 任务新增了 socket 端到端单测（Handshake/Heartbeat/VideoFrame），需在有可用本地端口的环境运行。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

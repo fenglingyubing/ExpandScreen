@@ -41,5 +41,14 @@ namespace ExpandScreen.UI.Views
             System.Windows.MessageBox.Show("设置已保存", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
             Close();
         }
+
+        private void CheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            var updateWindow = new UpdateWindow
+            {
+                Owner = this
+            };
+            updateWindow.ShowDialog();
+        }
     }
 }

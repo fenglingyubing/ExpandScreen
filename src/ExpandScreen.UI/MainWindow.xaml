@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:ExpandScreen.UI.ViewModels"
         xmlns:conv="clr-namespace:ExpandScreen.UI.Converters"
+        xmlns:svc="clr-namespace:ExpandScreen.UI.Services"
         Title="ExpandScreen"
         Height="600"
         Width="900"
@@ -357,7 +358,7 @@
 
                     <!-- Version Info -->
                     <TextBlock Grid.Column="1"
-                              Text="v1.0.0-beta"
+                              Text="{Binding Source={x:Static svc:AppInfo.DisplayVersion}, StringFormat=v{0}}"
                               FontFamily="{DynamicResource MonoFont}"
                               FontSize="11"
                               Foreground="{DynamicResource TextDisabledBrush}"

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using ExpandScreen.UI.ViewModels;
@@ -68,6 +69,37 @@ namespace ExpandScreen.UI.Converters
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class ProgressToWidthConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values.Length < 3)
+            {
+                return 0d;
+            }
+
+            if (values[0] is not double actualWidth || actualWidth <= 0)
+            {
+                return 0d;
+            }
+
+            double value = values[1] is double v ? v : 0d;
+            double maximum = values[2] is double m ? m : 100d;
+            if (maximum <= 0)
+            {
+                return 0d;
+            }
+
+            double ratio = Math.Clamp(value / maximum, 0d, 1d);
+            return actualWidth * ratio;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }

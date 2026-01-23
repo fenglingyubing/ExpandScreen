@@ -13,6 +13,7 @@ namespace ExpandScreen.Protocol.Network
         private readonly NetworkReceiver _receiver;
         private readonly CancellationTokenSource _heartbeatCts;
         private readonly Task? _heartbeatTask;
+        private readonly Func<HandshakeMessage, Task<(bool Accept, string? ErrorMessage)>>? _handshakeRequestHandler;
 
         private bool _isHandshakeCompleted;
         private bool _disposed;
@@ -49,6 +50,11 @@ namespace ExpandScreen.Protocol.Network
         public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
 
         /// <summary>
+        /// 连接关闭事件
+        /// </summary>
+        public event EventHandler? ConnectionClosed;
+
+        /// <summary>
         /// 会话错误事件
         /// </summary>
         public event EventHandler<Exception>? SessionError;
@@ -56,7 +62,8 @@ namespace ExpandScreen.Protocol.Network
         public NetworkSession(
             NetworkStream networkStream,
             int heartbeatIntervalMs = 5000,
-            int heartbeatTimeoutMs = 15000)
+            int heartbeatTimeoutMs = 15000,
+            Func<HandshakeMessage, Task<(bool Accept, string? ErrorMessage)>>? handshakeRequestHandler = null)
         {
             _networkStream = networkStream ?? throw new ArgumentNullException(nameof(networkStream));
             _sender = new NetworkSender(networkStream);
@@ -66,6 +73,7 @@ namespace ExpandScreen.Protocol.Network
             _heartbeatTimeoutMs = heartbeatTimeoutMs;
             _lastHeartbeatReceived = DateTime.UtcNow;
             _isHandshakeCompleted = false;
+            _handshakeRequestHandler = handshakeRequestHandler;
 
             // 订阅接收器事件
             _receiver.MessageReceived += OnMessageReceived;
@@ -218,6 +226,17 @@ namespace ExpandScreen.Protocol.Network
             {
                 switch (e.Header.Type)
                 {
+                    case MessageType.Handshake:
+                        if (_handshakeRequestHandler != null)
+                        {
+                            HandleHandshake(e.Payload);
+                        }
+                        else
+                        {
+                            MessageReceived?.Invoke(this, e);
+                        }
+                        break;
+
                     case MessageType.HandshakeAck:
                         HandleHandshakeAck(e.Payload);
                         break;
@@ -239,6 +258,27 @@ namespace ExpandScreen.Protocol.Network
             catch (Exception ex)
             {
                 OnSessionError(ex);
+            }
+        }
+
+        private async void HandleHandshake(byte[] payload)
+        {
+            var request = MessageSerializer.DeserializeJsonPayload<HandshakeMessage>(payload);
+            if (request == null)
+            {
+                await RespondToHandshakeAsync(new HandshakeMessage(), accept: false, errorMessage: "Invalid handshake payload");
+                return;
+            }
+
+            try
+            {
+                var decision = await _handshakeRequestHandler(request);
+                await RespondToHandshakeAsync(request, accept: decision.Accept, errorMessage: decision.ErrorMessage);
+            }
+            catch (Exception ex)
+            {
+                OnSessionError(ex);
+                await RespondToHandshakeAsync(request, accept: false, errorMessage: ex.Message);
             }
         }
 
@@ -327,6 +367,7 @@ namespace ExpandScreen.Protocol.Network
         private void OnConnectionClosed(object? sender, EventArgs e)
         {
             Console.WriteLine("[NetworkSession] Connection closed");
+            ConnectionClosed?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnHeartbeatTimeout()

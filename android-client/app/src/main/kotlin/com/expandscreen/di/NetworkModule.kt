@@ -1,6 +1,7 @@
 package com.expandscreen.di
 
 import com.expandscreen.BuildConfig
+import com.expandscreen.core.network.NetworkManagerConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,6 +19,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
+    @Provides
+    @Singleton
+    fun provideNetworkManagerConfig(): NetworkManagerConfig = NetworkManagerConfig()
 
     @Provides
     @Singleton

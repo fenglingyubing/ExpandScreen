@@ -8,8 +8,10 @@ import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.Build
+import android.os.Debug
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.Process
 import android.view.Surface
 import androidx.core.app.NotificationCompat
 import com.expandscreen.core.decoder.EncodedFrame
@@ -85,6 +87,7 @@ class DisplayService : Service() {
     private var processingJob: Job? = null
     private var connectionJob: Job? = null
     private var notificationJob: Job? = null
+    private var metricsJob: Job? = null
 
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -205,6 +208,7 @@ class DisplayService : Service() {
                 if (processingJob?.isActive == true) return@withLock
                 acquireWakeLock()
                 startNotificationUpdates()
+                startMetricsUpdates()
                 startConnectionCollector()
                 startVideoCollector()
             }
@@ -293,6 +297,46 @@ class DisplayService : Service() {
             }
     }
 
+    private fun startMetricsUpdates() {
+        metricsJob?.cancel()
+        metricsJob =
+            serviceScope.launch(Dispatchers.Default) {
+                var lastWallMs = System.currentTimeMillis()
+                var lastCpuMs = Process.getElapsedCpuTime()
+                val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+
+                while (isActive) {
+                    delay(1_000)
+                    val nowWallMs = System.currentTimeMillis()
+                    val nowCpuMs = Process.getElapsedCpuTime()
+
+                    val wallDeltaMs = (nowWallMs - lastWallMs).coerceAtLeast(1)
+                    val cpuDeltaMs = (nowCpuMs - lastCpuMs).coerceAtLeast(0)
+                    lastWallMs = nowWallMs
+                    lastCpuMs = nowCpuMs
+
+                    val cpuPct =
+                        ((cpuDeltaMs.toDouble() / (wallDeltaMs.toDouble() * cores.toDouble())) * 100.0)
+                            .roundToInt()
+                            .coerceIn(0, 999)
+                    val pssMb = (Debug.getPss() / 1024L).coerceAtLeast(0L).toInt()
+                    val stats = decoder.snapshotStats()
+
+                    _state.value =
+                        _state.value.copy(
+                            memoryPssMb = pssMb,
+                            cpuUsagePercent = cpuPct,
+                            decoderQueuedFrames = stats.queuedFrames,
+                            decoderDroppedFrames = stats.droppedFrames,
+                            decoderSkippedNonKeyFrames = stats.skippedNonKeyFrames,
+                            decoderCodecResets = stats.codecResets,
+                            decoderReconfigures = stats.reconfigures,
+                            lastError = _state.value.lastError ?: stats.lastError,
+                        )
+                }
+            }
+    }
+
     private fun ensureDecoderInitialized(width: Int, height: Int, surface: Surface): Boolean {
         synchronized(decoderInitLock) {
             if (decoderInitialized) return true
@@ -334,6 +378,8 @@ class DisplayService : Service() {
         connectionJob = null
         notificationJob?.cancel()
         notificationJob = null
+        metricsJob?.cancel()
+        metricsJob = null
 
         synchronized(decoderInitLock) {
             decoderInitialized = false

@@ -7,6 +7,7 @@ import timber.log.Timber
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Video Decoder Interface
@@ -34,6 +35,14 @@ class H264Decoder(
     private val running = AtomicBoolean(false)
     private val codecLock = Any()
 
+    private val droppedFrames = AtomicLong(0)
+    private val skippedNonKeyFrames = AtomicLong(0)
+    private val codecResets = AtomicLong(0)
+    private val reconfigures = AtomicLong(0)
+
+    @Volatile
+    private var lastError: String? = null
+
     private var codec: MediaCodec? = null
     private var config: VideoDecoderConfig? = null
     private var decodeThread: Thread? = null
@@ -45,6 +54,11 @@ class H264Decoder(
             releaseCodec()
             this.config = config
             this.needsKeyFrame = true
+            this.lastError = null
+            droppedFrames.set(0)
+            skippedNonKeyFrames.set(0)
+            codecResets.set(0)
+            reconfigures.set(0)
             this.codec = createCodec(config)
         }
         startDecodeThread()
@@ -52,6 +66,7 @@ class H264Decoder(
 
     override fun enqueueFrame(frame: EncodedFrame): Boolean {
         if (!running.get()) {
+            droppedFrames.incrementAndGet()
             frame.release()
             return false
         }
@@ -62,8 +77,10 @@ class H264Decoder(
 
         val dropped = frameQueue.poll()
         dropped?.release()
+        droppedFrames.incrementAndGet()
         val accepted = frameQueue.offer(frame)
         if (!accepted) {
+            droppedFrames.incrementAndGet()
             frame.release()
         }
         return accepted
@@ -125,7 +142,10 @@ class H264Decoder(
                     continue
                 }
 
-                if (needsKeyFrame && !frame.isKeyFrame) continue
+                if (needsKeyFrame && !frame.isKeyFrame) {
+                    skippedNonKeyFrames.incrementAndGet()
+                    continue
+                }
 
                 val activeCodec = codec
                 if (activeCodec == null) continue
@@ -152,6 +172,7 @@ class H264Decoder(
                 drainOutput(activeCodec)
             } catch (e: IllegalStateException) {
                 Timber.e(e, "Decoder error; resetting")
+                lastError = e.message ?: e.javaClass.simpleName
                 resetCodec()
             } finally {
                 frame.release()
@@ -200,6 +221,7 @@ class H264Decoder(
 
     private fun resetCodec() {
         synchronized(codecLock) {
+            codecResets.incrementAndGet()
             needsKeyFrame = true
             clearQueuedFrames()
             releaseCodec()
@@ -211,6 +233,7 @@ class H264Decoder(
     }
 
     private fun reconfigureForFrame(frame: EncodedFrame, activeConfig: VideoDecoderConfig) {
+        reconfigures.incrementAndGet()
         val updatedConfig =
             activeConfig.copy(
                 width = frame.width,
@@ -238,4 +261,24 @@ class H264Decoder(
         }
         codec = null
     }
+
+    fun snapshotStats(): DecoderStats {
+        return DecoderStats(
+            queuedFrames = frameQueue.size,
+            droppedFrames = droppedFrames.get(),
+            skippedNonKeyFrames = skippedNonKeyFrames.get(),
+            codecResets = codecResets.get(),
+            reconfigures = reconfigures.get(),
+            lastError = lastError,
+        )
+    }
 }
+
+data class DecoderStats(
+    val queuedFrames: Int,
+    val droppedFrames: Long,
+    val skippedNonKeyFrames: Long,
+    val codecResets: Long,
+    val reconfigures: Long,
+    val lastError: String?,
+)

@@ -95,6 +95,24 @@
 
 ---
 
+任务2.2.3构建要求:
+- JDK 17
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+
+构建/测试状态:
+⚠️ 本地环境缺少 Android SDK 路径，单元测试未能执行
+
+关键命令与输出（本地Linux）:
+1. Android（单元测试）:
+   - `cd android-client && ./gradlew :app:testDebugUnitTest`
+   - 结果：FAILED（原因：未配置 `ANDROID_HOME` 或 `android-client/local.properties` 的 `sdk.dir`）
+
+说明:
+- 需要在有 Android SDK 的环境中配置 `sdk.dir` 后重试
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

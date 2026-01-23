@@ -195,17 +195,14 @@ namespace ExpandScreen.Services.Connection
                         return Task.FromResult((Accept: true, ErrorMessage: (string?)null));
                     });
 
-                session.ConnectionClosed += async (s, e) => { await ClearCurrentSessionAsync(); };
+                session.ConnectionClosed += (s, e) => FireAndForget(ClearCurrentSessionAsync(), "ConnectionClosed");
 
-                session.HeartbeatTimeout += async (s, e) =>
-                {
-                    await ClearCurrentSessionAsync();
-                };
+                session.HeartbeatTimeout += (s, e) => FireAndForget(ClearCurrentSessionAsync(), "HeartbeatTimeout");
 
-                session.SessionError += async (s, ex) =>
+                session.SessionError += (s, ex) =>
                 {
                     ConnectionError?.Invoke(this, ex);
-                    await ClearCurrentSessionAsync();
+                    FireAndForget(ClearCurrentSessionAsync(), "SessionError");
                 };
 
                 _currentSession = session;
@@ -231,7 +228,15 @@ namespace ExpandScreen.Services.Connection
 
         private async Task ClearCurrentSessionAsync()
         {
-            await _sessionLock.WaitAsync();
+            try
+            {
+                await _sessionLock.WaitAsync();
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+
             try
             {
                 ClearCurrentSessionNoLock();
@@ -240,8 +245,24 @@ namespace ExpandScreen.Services.Connection
             }
             finally
             {
-                _sessionLock.Release();
+                try
+                {
+                    _sessionLock.Release();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // ignore: Dispose() may have already disposed the semaphore while an async cleanup was in-flight
+                }
             }
+        }
+
+        private static void FireAndForget(Task task, string context)
+        {
+            _ = task.ContinueWith(
+                t => LogHelper.Debug($"WifiConnection background task failed ({context}): {t.Exception?.GetBaseException().Message}"),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
         }
 
         private void ThrowIfDisposed()

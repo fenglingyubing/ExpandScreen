@@ -118,6 +118,10 @@ dependencies {
     // DataStore (for preferences)
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
+    // Jetpack Preference (Settings screen)
+    implementation("androidx.preference:preference-ktx:1.2.1")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
+
     // Accompanist (System UI Controller for full screen, etc.)
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
 

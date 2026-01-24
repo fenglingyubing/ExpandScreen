@@ -52,6 +52,19 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:launchMode="singleTask" />
 
+        <!-- Settings -->
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ExpandScreen"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
+
+        <activity
+            android:name=".ui.settings.OpenSourceLicensesActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ExpandScreen"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
+
         <!-- Display Service (Foreground) -->
         <service
             android:name=".service.DisplayService"

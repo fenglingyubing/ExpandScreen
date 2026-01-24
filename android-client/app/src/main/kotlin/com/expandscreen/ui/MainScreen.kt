@@ -46,11 +46,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -70,6 +68,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import com.expandscreen.core.network.ConnectionState
 import com.expandscreen.core.network.DiscoveredWindowsServer
 import com.expandscreen.data.model.WindowsDeviceEntity
+import com.expandscreen.data.repository.PreferredConnection
 import com.expandscreen.ui.theme.ExpandScreenTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,7 +90,6 @@ fun MainScreen(
     onDeleteDevice: (WindowsDeviceEntity) -> Unit,
     onRequestQrScan: () -> Unit,
     onOpenSettings: () -> Unit,
-    onCloseSettings: () -> Unit,
     onCancelWaiting: () -> Unit,
 ) {
     val backgroundBrush =
@@ -173,6 +171,7 @@ fun MainScreen(
                     port = state.port,
                     androidDeviceId = state.androidDeviceId,
                     androidDeviceName = state.androidDeviceName,
+                    preferredConnection = state.preferredConnection,
                     connectionState = state.connectionState,
                     onHostChange = onHostChange,
                     onPortChange = onPortChange,
@@ -223,19 +222,6 @@ fun MainScreen(
             ConnectionWaitingOverlay(onCancel = onCancelWaiting)
         }
 
-        if (state.showSettings) {
-            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
-                onDismissRequest = onCloseSettings,
-                sheetState = sheetState,
-                containerColor = Color(0xFF0C1217),
-                contentColor = Color(0xFFE9F2FF),
-                dragHandle = null,
-                windowInsets = WindowInsets(0, 0, 0, 0),
-            ) {
-                SettingsSheet(onClose = onCloseSettings)
-            }
-        }
     }
 }
 
@@ -294,6 +280,7 @@ private fun QuickConnectCard(
     port: String,
     androidDeviceId: String,
     androidDeviceName: String,
+    preferredConnection: PreferredConnection,
     connectionState: ConnectionState,
     onHostChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
@@ -306,6 +293,30 @@ private fun QuickConnectCard(
 ) {
     val isBusy = connectionState == ConnectionState.Connecting
     val isConnected = connectionState is ConnectionState.Connected
+    val preferUsb = preferredConnection == PreferredConnection.Usb
+
+    val wifiColors =
+        if (!preferUsb) {
+            ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF133B3A),
+                contentColor = Color(0xFFDCFFF1),
+            )
+        } else {
+            ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1C2B3A),
+                contentColor = Color(0xFFE9F2FF),
+            )
+        }
+
+    val usbColors =
+        if (preferUsb) {
+            ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF133B3A),
+                contentColor = Color(0xFFDCFFF1),
+            )
+        } else {
+            ButtonDefaults.buttonColors()
+        }
 
     Card(
         colors =
@@ -369,11 +380,7 @@ private fun QuickConnectCard(
                 Button(
                     onClick = onConnectWifi,
                     enabled = !isBusy && !isConnected,
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF133B3A),
-                            contentColor = Color(0xFFDCFFF1),
-                        ),
+                    colors = wifiColors,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Wifi,
@@ -387,6 +394,7 @@ private fun QuickConnectCard(
                 Button(
                     onClick = onConnectUsb,
                     enabled = !isBusy && !isConnected,
+                    colors = usbColors,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Usb,
@@ -854,58 +862,6 @@ private fun ConnectionWaitingOverlay(onCancel: () -> Unit) {
     }
 }
 
-@Composable
-private fun SettingsSheet(onClose: () -> Unit) {
-    Column(
-        modifier =
-            Modifier
-                .padding(horizontal = 18.dp, vertical = 14.dp)
-                .padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color(0xFFE9F2FF),
-            )
-            TextButton(onClick = onClose) {
-                Text(
-                    text = "Close",
-                    fontFamily = FontFamily.Monospace,
-                )
-            }
-        }
-
-        Card(
-            colors =
-                CardDefaults.cardColors(
-                    containerColor = Color(0xFF101A22),
-                    contentColor = Color(0xFFE9F2FF),
-                ),
-            shape = MaterialTheme.shapes.large,
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Placeholder for future preferences.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFFB8C7D9),
-                )
-                Text(
-                    text = "Planned: QR connect, remembered ports, per-device profiles.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFFB8C7D9),
-                )
-            }
-        }
-    }
-}
-
 private fun formatEpochMs(epochMs: Long): String {
     return runCatching {
         val dt =
@@ -964,7 +920,6 @@ private fun MainScreenPreview() {
                 onDeleteDevice = {},
             onRequestQrScan = {},
             onOpenSettings = {},
-            onCloseSettings = {},
             onCancelWaiting = {},
         )
     }

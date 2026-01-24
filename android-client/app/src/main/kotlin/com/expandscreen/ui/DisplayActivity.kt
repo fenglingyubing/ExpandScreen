@@ -56,6 +56,8 @@ import com.expandscreen.core.network.ConnectionState
 import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.performance.PerformanceMode
 import com.expandscreen.core.renderer.GLRenderer
+import com.expandscreen.data.repository.PerformancePreset
+import com.expandscreen.data.repository.SettingsRepository
 import com.expandscreen.service.DisplayService
 import com.expandscreen.ui.theme.ExpandScreenTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -65,6 +67,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -79,6 +82,7 @@ import timber.log.Timber
 class DisplayActivity : ComponentActivity() {
 
     @Inject lateinit var networkManager: NetworkManager
+    @Inject lateinit var settingsRepository: SettingsRepository
 
     private val uiState = MutableStateFlow(DisplayUiState())
 
@@ -97,6 +101,7 @@ class DisplayActivity : ComponentActivity() {
         )
 
     private var collectJob: Job? = null
+    private var settingsJob: Job? = null
 
     private val touchBatches = Channel<List<com.expandscreen.protocol.TouchEventMessage>>(capacity = 128)
     private var touchSendJob: Job? = null
@@ -131,15 +136,10 @@ class DisplayActivity : ComponentActivity() {
 
         Timber.d("DisplayActivity created")
 
-        // Keep screen on during video display
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        // Enable immersive full-screen mode
-        setupFullScreen()
-
-        // Disable rotation by default (configurable via intent extra)
-        val allowRotation = intent.getBooleanExtra(EXTRA_ALLOW_ROTATION, false)
-        applyOrientationPolicy(allowRotation)
+        val initialSettings = settingsRepository.settings.value
+        applyKeepScreenOn(initialSettings.display.keepScreenOn)
+        applyFullScreen(initialSettings.display.fullScreen)
+        applyOrientationPolicy(initialSettings.display.allowRotation)
 
         setContent {
             ExpandScreenTheme {
@@ -156,14 +156,15 @@ class DisplayActivity : ComponentActivity() {
                         onToggleHud = { uiState.update { it.copy(showHud = !it.showHud) } },
                         onToggleRotationLock = {
                             val newAllowRotation = !uiState.value.allowRotation
+                            settingsRepository.setAllowRotation(newAllowRotation)
                             uiState.update { it.copy(allowRotation = newAllowRotation) }
-                            applyOrientationPolicy(newAllowRotation)
                         },
                         onToggleMenu = { uiState.update { it.copy(showMenu = !it.showMenu) } },
                         onHideMenu = { uiState.update { it.copy(showMenu = false) } },
                         onSetPerformanceMode = { mode ->
                             uiState.update { it.copy(performanceMode = mode) }
                             applyBrightnessForMode(mode)
+                            settingsRepository.setPerformancePreset(mode.toPreset())
                             boundService.value?.setPerformanceMode(mode)
                         },
                         onMotionEvent = { motionEvent -> handleMotionEvent(motionEvent) },
@@ -176,7 +177,7 @@ class DisplayActivity : ComponentActivity() {
             }
         }
 
-        uiState.update { it.copy(allowRotation = allowRotation) }
+        uiState.update { it.copy(allowRotation = initialSettings.display.allowRotation) }
         applyBrightnessForMode(uiState.value.performanceMode)
 
         touchSendJob?.cancel()
@@ -189,11 +190,27 @@ class DisplayActivity : ComponentActivity() {
     }
 
     private fun setupFullScreen() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        applyFullScreen(true)
+    }
+
+    private fun applyFullScreen(enabled: Boolean) {
+        WindowCompat.setDecorFitsSystemWindows(window, !enabled)
         WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (enabled) {
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
+    private fun applyKeepScreenOn(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -231,8 +248,21 @@ class DisplayActivity : ComponentActivity() {
         super.onResume()
         Timber.d("DisplayActivity resumed - starting video playback")
 
-        setupFullScreen()
+        applyFullScreen(settingsRepository.settings.value.display.fullScreen)
         glSurfaceView?.onResume()
+
+        settingsJob?.cancel()
+        settingsJob =
+            lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    settingsRepository.settings.collectLatest { settings ->
+                        applyKeepScreenOn(settings.display.keepScreenOn)
+                        applyFullScreen(settings.display.fullScreen)
+                        applyOrientationPolicy(settings.display.allowRotation)
+                        uiState.update { it.copy(allowRotation = settings.display.allowRotation) }
+                    }
+                }
+            }
 
         collectJob?.cancel()
         collectJob =
@@ -287,6 +317,8 @@ class DisplayActivity : ComponentActivity() {
         Timber.d("DisplayActivity paused")
         collectJob?.cancel()
         collectJob = null
+        settingsJob?.cancel()
+        settingsJob = null
         glSurfaceView?.onPause()
         boundService.value?.setDecoderOutputSurface(null)
     }
@@ -306,12 +338,8 @@ class DisplayActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
-            setupFullScreen()
+            applyFullScreen(settingsRepository.settings.value.display.fullScreen)
         }
-    }
-
-    private companion object {
-        const val EXTRA_ALLOW_ROTATION = "com.expandscreen.extra.ALLOW_ROTATION"
     }
 
     private fun getLandscapePixels(): Pair<Int, Int> {
@@ -331,6 +359,14 @@ class DisplayActivity : ComponentActivity() {
         val ok = touchBatches.trySend(messages).isSuccess
         if (!ok && !isMoveOnly) {
             lifecycleScope.launch { touchBatches.send(messages) }
+        }
+    }
+
+    private fun PerformanceMode.toPreset(): PerformancePreset {
+        return when (this) {
+            PerformanceMode.Performance -> PerformancePreset.Performance
+            PerformanceMode.Balanced -> PerformancePreset.Balanced
+            PerformanceMode.PowerSave -> PerformancePreset.PowerSave
         }
     }
 }

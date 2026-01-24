@@ -35,6 +35,9 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_badge_live">LIVE</string>
+
     <string name="video_settings">Video Settings</string>
     <string name="network_settings">Network Settings</string>
     <string name="performance_settings">Performance Settings</string>
@@ -46,6 +49,69 @@
     <string name="performance_mode">Performance Mode</string>
     <string name="low_latency_mode">Low Latency Mode</string>
     <string name="keep_screen_on">Keep Screen On</string>
+
+    <!-- Preference Screen -->
+    <string name="pref_category_video">Video</string>
+    <string name="pref_category_performance">Performance</string>
+    <string name="pref_category_display">Display</string>
+    <string name="pref_category_network">Network</string>
+    <string name="pref_category_config">Config</string>
+    <string name="pref_category_about">About</string>
+
+    <string name="pref_video_resolution_title">Resolution</string>
+    <string name="pref_video_resolution_summary">Requested stream resolution (if supported)</string>
+    <string name="pref_video_frame_rate_title">Frame rate</string>
+    <string name="pref_video_frame_rate_summary">Requested FPS cap (if supported)</string>
+    <string name="pref_video_quality_title">Quality</string>
+    <string name="pref_video_quality_summary">Requested quality preset (if supported)</string>
+
+    <string name="pref_video_resolution_auto">Auto (recommended)</string>
+    <string name="pref_video_resolution_720p">1280×720</string>
+    <string name="pref_video_resolution_1080p">1920×1080</string>
+    <string name="pref_video_resolution_1600p">2560×1600</string>
+
+    <string name="pref_video_frame_rate_auto">Auto</string>
+    <string name="pref_video_frame_rate_30">30 FPS</string>
+    <string name="pref_video_frame_rate_60">60 FPS</string>
+    <string name="pref_video_frame_rate_120">120 FPS</string>
+
+    <string name="pref_video_quality_low">Low</string>
+    <string name="pref_video_quality_balanced">Balanced</string>
+    <string name="pref_video_quality_high">High</string>
+
+    <string name="pref_perf_preset_title">Performance preset</string>
+    <string name="pref_perf_preset_summary">Affects render FPS cap and decoder operating rate</string>
+    <string name="pref_perf_preset_power_save">Power Save</string>
+    <string name="pref_perf_preset_balanced">Balanced</string>
+    <string name="pref_perf_preset_performance">Performance</string>
+
+    <string name="pref_perf_low_latency_title">Low latency mode</string>
+    <string name="pref_perf_low_latency_summary">Toggles decoder low-latency hint (Android 11+)</string>
+
+    <string name="pref_display_keep_screen_on_title">Keep screen on</string>
+    <string name="pref_display_keep_screen_on_summary">Prevents the display from sleeping while streaming</string>
+    <string name="pref_display_allow_rotation_title">Allow rotation</string>
+    <string name="pref_display_allow_rotation_summary">Let the display rotate with device orientation</string>
+    <string name="pref_display_fullscreen_title">Full screen</string>
+    <string name="pref_display_fullscreen_summary">Hide system bars during display</string>
+
+    <string name="pref_network_preferred_connection_title">Preferred connection</string>
+    <string name="pref_network_preferred_connection_summary">Default choice for quick connect</string>
+    <string name="pref_network_preferred_connection_wifi">WiFi</string>
+    <string name="pref_network_preferred_connection_usb">USB</string>
+
+    <string name="pref_network_auto_reconnect_title">Auto reconnect</string>
+    <string name="pref_network_auto_reconnect_summary">Reconnect automatically after WiFi disconnect</string>
+
+    <string name="pref_config_export_title">Export configuration</string>
+    <string name="pref_config_export_summary">Save settings as JSON</string>
+    <string name="pref_config_import_title">Import configuration</string>
+    <string name="pref_config_import_summary">Load settings from JSON</string>
+
+    <string name="pref_about_version_title">Version</string>
+    <string name="pref_about_version_summary">Loading…</string>
+    <string name="pref_about_licenses_title">Open source licenses</string>
+    <string name="pref_about_licenses_summary">Third-party software notices</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Display Service</string>

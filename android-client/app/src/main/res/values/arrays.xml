@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pref_video_resolution_entries">
+        <item>@string/pref_video_resolution_auto</item>
+        <item>@string/pref_video_resolution_720p</item>
+        <item>@string/pref_video_resolution_1080p</item>
+        <item>@string/pref_video_resolution_1600p</item>
+    </string-array>
+    <string-array name="pref_video_resolution_values">
+        <item>auto</item>
+        <item>1280x720</item>
+        <item>1920x1080</item>
+        <item>2560x1600</item>
+    </string-array>
+
+    <string-array name="pref_video_frame_rate_entries">
+        <item>@string/pref_video_frame_rate_auto</item>
+        <item>@string/pref_video_frame_rate_30</item>
+        <item>@string/pref_video_frame_rate_60</item>
+        <item>@string/pref_video_frame_rate_120</item>
+    </string-array>
+    <string-array name="pref_video_frame_rate_values">
+        <item>auto</item>
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+    </string-array>
+
+    <string-array name="pref_video_quality_entries">
+        <item>@string/pref_video_quality_low</item>
+        <item>@string/pref_video_quality_balanced</item>
+        <item>@string/pref_video_quality_high</item>
+    </string-array>
+    <string-array name="pref_video_quality_values">
+        <item>low</item>
+        <item>balanced</item>
+        <item>high</item>
+    </string-array>
+
+    <string-array name="pref_perf_preset_entries">
+        <item>@string/pref_perf_preset_power_save</item>
+        <item>@string/pref_perf_preset_balanced</item>
+        <item>@string/pref_perf_preset_performance</item>
+    </string-array>
+    <string-array name="pref_perf_preset_values">
+        <item>power_save</item>
+        <item>balanced</item>
+        <item>performance</item>
+    </string-array>
+
+    <string-array name="pref_network_preferred_connection_entries">
+        <item>@string/pref_network_preferred_connection_wifi</item>
+        <item>@string/pref_network_preferred_connection_usb</item>
+    </string-array>
+    <string-array name="pref_network_preferred_connection_values">
+        <item>wifi</item>
+        <item>usb</item>
+    </string-array>
+</resources>
+

@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expandscreen.ui.settings.SettingsActivity
 
 @Composable
 fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
@@ -22,6 +23,9 @@ fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
             when (event) {
                 MainUiEvent.NavigateToDisplay -> {
                     context.startActivity(Intent(context, DisplayActivity::class.java))
+                }
+                MainUiEvent.NavigateToSettings -> {
+                    context.startActivity(Intent(context, SettingsActivity::class.java))
                 }
                 is MainUiEvent.ShowSnackbar -> {
                     snackbars.showSnackbar(event.message)
@@ -47,7 +51,6 @@ fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
         onDeleteDevice = viewModel::deleteDevice,
         onRequestQrScan = viewModel::requestQrScan,
         onOpenSettings = viewModel::openSettings,
-        onCloseSettings = viewModel::closeSettings,
         onCancelWaiting = viewModel::disconnect,
     )
 }

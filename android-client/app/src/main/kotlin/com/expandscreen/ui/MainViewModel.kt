@@ -9,6 +9,8 @@ import com.expandscreen.core.network.WifiDiscoveryClient
 import com.expandscreen.core.network.DiscoveredWindowsServer
 import com.expandscreen.data.model.WindowsDeviceEntity
 import com.expandscreen.data.repository.DeviceRepository
+import com.expandscreen.data.repository.PreferredConnection
+import com.expandscreen.data.repository.SettingsRepository
 import com.expandscreen.protocol.HandshakeMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -26,6 +28,7 @@ class MainViewModel @Inject constructor(
     private val networkManager: NetworkManager,
     private val wifiDiscoveryClient: WifiDiscoveryClient,
     private val deviceRepository: DeviceRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState = _uiState.asStateFlow()
@@ -52,6 +55,12 @@ class MainViewModel @Inject constructor(
                 _uiState.update { it.copy(devices = devices) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.settings.collect { settings ->
+                val preferred: PreferredConnection = settings.network.preferredConnection
+                _uiState.update { it.copy(preferredConnection = preferred) }
+            }
+        }
     }
 
     fun setHost(host: String) {
@@ -71,11 +80,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun openSettings() {
-        _uiState.update { it.copy(showSettings = true) }
-    }
-
-    fun closeSettings() {
-        _uiState.update { it.copy(showSettings = false) }
+        _events.tryEmit(MainUiEvent.NavigateToSettings)
     }
 
     fun requestQrScan() {
@@ -160,12 +165,13 @@ class MainViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(lastError = null) }
+            val autoReconnect = settingsRepository.settings.value.network.autoReconnect
             val result =
                 networkManager.connectViaWiFi(
                     host = host,
                     port = port,
                     handshake = handshake,
-                    autoReconnect = true,
+                    autoReconnect = autoReconnect,
                 )
             result.onSuccess {
                 deviceRepository.upsertConnectedDevice(

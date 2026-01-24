@@ -23,6 +23,8 @@ import com.expandscreen.core.network.IncomingMessage
 import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.performance.PerformanceMode
 import dagger.hilt.android.AndroidEntryPoint
+import com.expandscreen.data.repository.PerformancePreset
+import com.expandscreen.data.repository.SettingsRepository
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
@@ -52,6 +54,7 @@ import timber.log.Timber
 class DisplayService : Service() {
 
     @Inject lateinit var networkManager: NetworkManager
+    @Inject lateinit var settingsRepository: SettingsRepository
 
     private val binder = DisplayServiceBinder()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -89,8 +92,12 @@ class DisplayService : Service() {
     private var connectionJob: Job? = null
     private var notificationJob: Job? = null
     private var metricsJob: Job? = null
+    private var settingsJob: Job? = null
 
     private var wakeLock: PowerManager.WakeLock? = null
+
+    @Volatile
+    private var decoderLowLatency: Boolean = true
 
     private val _state = MutableStateFlow(DisplayServiceState())
     val state: StateFlow<DisplayServiceState> = _state.asStateFlow()
@@ -119,6 +126,7 @@ class DisplayService : Service() {
         super.onCreate()
         Timber.d("DisplayService created")
         createNotificationChannel()
+        startSettingsCollector()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -159,6 +167,27 @@ class DisplayService : Service() {
         super.onDestroy()
         Timber.d("DisplayService destroyed")
         stopAndCleanup(reason = "onDestroy")
+    }
+
+    private fun startSettingsCollector() {
+        settingsJob?.cancel()
+        settingsJob =
+            serviceScope.launch(Dispatchers.Default) {
+                settingsRepository.settings.collect { settings ->
+                    val mode = settings.performance.preset.toPerformanceMode()
+                    if (state.value.performanceMode != mode) {
+                        setPerformanceMode(mode)
+                    }
+
+                    val nextLowLatency = settings.performance.lowLatencyMode
+                    if (decoderLowLatency != nextLowLatency) {
+                        decoderLowLatency = nextLowLatency
+                        synchronized(decoderInitLock) { decoderInitialized = false }
+                        runCatching { decoder.flush() }
+                            .onFailure { Timber.w(it, "Decoder flush failed after low-latency setting change") }
+                    }
+                }
+            }
     }
 
     private fun createNotificationChannel() {
@@ -374,7 +403,7 @@ class DisplayService : Service() {
                     width = width.coerceAtLeast(1),
                     height = height.coerceAtLeast(1),
                     outputSurface = surface,
-                    lowLatency = mode.lowLatency,
+                    lowLatency = decoderLowLatency,
                     operatingRate = mode.decoderOperatingRateFps,
                 ),
             )
@@ -411,6 +440,8 @@ class DisplayService : Service() {
         notificationJob = null
         metricsJob?.cancel()
         metricsJob = null
+        settingsJob?.cancel()
+        settingsJob = null
 
         synchronized(decoderInitLock) {
             decoderInitialized = false
@@ -420,5 +451,13 @@ class DisplayService : Service() {
 
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
         stopSelf()
+    }
+
+    private fun PerformancePreset.toPerformanceMode(): PerformanceMode {
+        return when (this) {
+            PerformancePreset.Performance -> PerformanceMode.Performance
+            PerformancePreset.Balanced -> PerformanceMode.Balanced
+            PerformancePreset.PowerSave -> PerformanceMode.PowerSave
+        }
     }
 }

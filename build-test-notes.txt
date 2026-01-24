@@ -201,6 +201,27 @@
 
 ---
 
+任务3.2.4构建要求:
+- JDK 17+（Gradle 8.x 需要较新JDK）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+
+构建/测试状态:
+✅ AND-104（Android 设置功能）构建与单元测试通过
+
+关键命令与输出（本地Windows）:
+1. Android（assemble + 单元测试）:
+   - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --no-daemon; popd`
+   - 结果：`BUILD SUCCESSFUL in 1m 58s`（48 actionable tasks: 48 executed）
+
+备注:
+- 若默认 `JAVA_HOME` 指向 JDK 8，会导致 Gradle 8 daemon 启动失败；本任务固定使用 JDK 21 执行构建/测试
+- 编译期 warning（不影响通过）：
+  - `VideoDecoder.kt`：`MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED` deprecated
+  - `WifiDiscoveryClient.kt`：`dhcpInfo` deprecated
+
+---
+
 任务3.1.2构建要求:
 - .NET 8.0 SDK
 - FFmpeg native binaries（仅影响硬编/视频编码相关测试；无FFmpeg native 时相关测试会 Skip）

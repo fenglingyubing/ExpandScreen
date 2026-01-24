@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expandscreen.core.input.TouchProcessor
 import com.expandscreen.core.network.ConnectionState
 import com.expandscreen.core.network.NetworkManager
+import com.expandscreen.core.performance.PerformanceMode
 import com.expandscreen.core.renderer.GLRenderer
 import com.expandscreen.service.DisplayService
 import com.expandscreen.ui.theme.ExpandScreenTheme
@@ -108,6 +109,7 @@ class DisplayActivity : ComponentActivity() {
             viewHeightPxProvider = { glSurfaceView?.height ?: getLandscapePixels().second },
             videoWidthPxProvider = { uiState.value.videoWidth },
             videoHeightPxProvider = { uiState.value.videoHeight },
+            minMoveIntervalMsProvider = { uiState.value.performanceMode.touchMinMoveIntervalMs },
         )
     }
 
@@ -159,6 +161,11 @@ class DisplayActivity : ComponentActivity() {
                         },
                         onToggleMenu = { uiState.update { it.copy(showMenu = !it.showMenu) } },
                         onHideMenu = { uiState.update { it.copy(showMenu = false) } },
+                        onSetPerformanceMode = { mode ->
+                            uiState.update { it.copy(performanceMode = mode) }
+                            applyBrightnessForMode(mode)
+                            boundService.value?.setPerformanceMode(mode)
+                        },
                         onMotionEvent = { motionEvent -> handleMotionEvent(motionEvent) },
                         glSurfaceViewProvider = { surfaceView ->
                             glSurfaceView = surfaceView
@@ -170,6 +177,7 @@ class DisplayActivity : ComponentActivity() {
         }
 
         uiState.update { it.copy(allowRotation = allowRotation) }
+        applyBrightnessForMode(uiState.value.performanceMode)
 
         touchSendJob?.cancel()
         touchSendJob =
@@ -195,7 +203,17 @@ class DisplayActivity : ComponentActivity() {
                 ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
             } else {
                 ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        }
+            }
+    }
+
+    private fun applyBrightnessForMode(mode: PerformanceMode) {
+        val attrs = window.attributes
+        attrs.screenBrightness =
+            when (mode) {
+                PerformanceMode.PowerSave -> 0.6f
+                PerformanceMode.Balanced, PerformanceMode.Performance -> WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            }
+        window.attributes = attrs
     }
 
     override fun onStart() {
@@ -224,6 +242,7 @@ class DisplayActivity : ComponentActivity() {
                         boundService.filterNotNull().collect { bound ->
                             bound.state.collect { snapshot ->
                                 renderer.setVideoSize(snapshot.videoWidth, snapshot.videoHeight)
+                                val previousMode = uiState.value.performanceMode
                                 uiState.update {
                                     it.copy(
                                         fps = snapshot.fps,
@@ -238,7 +257,11 @@ class DisplayActivity : ComponentActivity() {
                                         decoderSkippedNonKeyFrames = snapshot.decoderSkippedNonKeyFrames,
                                         decoderCodecResets = snapshot.decoderCodecResets,
                                         decoderReconfigures = snapshot.decoderReconfigures,
+                                        performanceMode = snapshot.performanceMode,
                                     )
+                                }
+                                if (previousMode != snapshot.performanceMode) {
+                                    lifecycleScope.launch { applyBrightnessForMode(snapshot.performanceMode) }
                                 }
                                 if (snapshot.connectionState == ConnectionState.Disconnected) {
                                     finish()
@@ -324,6 +347,7 @@ private data class DisplayUiState(
     val decoderSkippedNonKeyFrames: Long = 0,
     val decoderCodecResets: Long = 0,
     val decoderReconfigures: Long = 0,
+    val performanceMode: PerformanceMode = PerformanceMode.Balanced,
     val connectionState: ConnectionState = ConnectionState.Disconnected,
     val showHud: Boolean = true,
     val showMenu: Boolean = false,
@@ -339,6 +363,7 @@ private fun DisplayScreen(
     onToggleRotationLock: () -> Unit,
     onToggleMenu: () -> Unit,
     onHideMenu: () -> Unit,
+    onSetPerformanceMode: (PerformanceMode) -> Unit,
     onMotionEvent: (MotionEvent) -> Unit,
     glSurfaceViewProvider: (GLSurfaceView) -> Unit,
 ) {
@@ -402,6 +427,7 @@ private fun DisplayScreen(
                 onExit = onExit,
                 onToggleHud = onToggleHud,
                 onToggleRotationLock = onToggleRotationLock,
+                onSetPerformanceMode = onSetPerformanceMode,
             )
         }
     }
@@ -471,6 +497,7 @@ private fun MenuPanel(
     onExit: () -> Unit,
     onToggleHud: () -> Unit,
     onToggleRotationLock: () -> Unit,
+    onSetPerformanceMode: (PerformanceMode) -> Unit,
 ) {
     val connectionText =
         when (state.connectionState) {
@@ -510,6 +537,34 @@ private fun MenuPanel(
                     "CFG ${state.decoderReconfigures}",
             style = MaterialTheme.typography.bodySmall,
             color = Color(0xFFB8C7D9),
+            fontFamily = FontFamily.Monospace,
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ModeChip(
+                label = "PERF",
+                selected = state.performanceMode == PerformanceMode.Performance,
+                accent = Color(0xFF7CFAC6),
+                onClick = { onSetPerformanceMode(PerformanceMode.Performance) },
+            )
+            ModeChip(
+                label = "BAL",
+                selected = state.performanceMode == PerformanceMode.Balanced,
+                accent = Color(0xFFE9F2FF),
+                onClick = { onSetPerformanceMode(PerformanceMode.Balanced) },
+            )
+            ModeChip(
+                label = "SAVE",
+                selected = state.performanceMode == PerformanceMode.PowerSave,
+                accent = Color(0xFFFFD166),
+                onClick = { onSetPerformanceMode(PerformanceMode.PowerSave) },
+            )
+        }
+
+        Text(
+            text = "Mode: ${state.performanceMode.label} • touch ${state.performanceMode.touchMinMoveIntervalMs}ms • ${state.performanceMode.targetRenderFps}fps cap",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFF7CFAC6),
             fontFamily = FontFamily.Monospace,
         )
 
@@ -553,6 +608,43 @@ private fun MenuPanel(
             text = "Double-tap to toggle menu",
             style = MaterialTheme.typography.labelMedium,
             color = Color(0xFF7CFAC6),
+            fontFamily = FontFamily.Monospace,
+        )
+    }
+}
+
+@Composable
+private fun ModeChip(
+    label: String,
+    selected: Boolean,
+    accent: Color,
+    onClick: () -> Unit,
+) {
+    val bg =
+        if (selected) {
+            Brush.linearGradient(
+                0.0f to accent.copy(alpha = 0.22f),
+                1.0f to Color(0xFF0B0F14),
+            )
+        } else {
+            Brush.linearGradient(
+                0.0f to Color(0xFF0B0F14).copy(alpha = 0.8f),
+                1.0f to Color(0xFF0B0F14),
+            )
+        }
+
+    Box(
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(bg)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) },
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) accent else Color(0xFFB8C7D9),
             fontFamily = FontFamily.Monospace,
         )
     }

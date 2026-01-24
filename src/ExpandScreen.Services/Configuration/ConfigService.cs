@@ -269,6 +269,7 @@ namespace ExpandScreen.Services.Configuration
             config.Video ??= new VideoConfig();
             config.Network ??= new NetworkConfig();
             config.Performance ??= new PerformanceConfig();
+            config.Logging ??= new LoggingConfig();
 
             if (config.Video.Width < 320)
             {
@@ -324,7 +325,43 @@ namespace ExpandScreen.Services.Configuration
                 config.Performance.EncodingThreadCount = Math.Clamp(config.Performance.EncodingThreadCount, 0, 64);
             }
 
+            // Logging
+            config.Logging.MinimumLevel ??= "Information";
+            if (!IsValidLogLevel(config.Logging.MinimumLevel))
+            {
+                warnings.Add("logging.minimumLevel invalid; reset to Information.");
+                config.Logging.MinimumLevel = "Information";
+            }
+
+            if (config.Logging.RetainedFileCountLimit < 1 || config.Logging.RetainedFileCountLimit > 365)
+            {
+                warnings.Add("logging.retainedFileCountLimit out of range; clamped to 1-365.");
+                config.Logging.RetainedFileCountLimit = Math.Clamp(config.Logging.RetainedFileCountLimit, 1, 365);
+            }
+
+            if (config.Logging.RetentionDays < 1 || config.Logging.RetentionDays > 365)
+            {
+                warnings.Add("logging.retentionDays out of range; clamped to 1-365.");
+                config.Logging.RetentionDays = Math.Clamp(config.Logging.RetentionDays, 1, 365);
+            }
+
+            if (config.Logging.FileSizeLimitMb < 1 || config.Logging.FileSizeLimitMb > 1024)
+            {
+                warnings.Add("logging.fileSizeLimitMb out of range; clamped to 1-1024.");
+                config.Logging.FileSizeLimitMb = Math.Clamp(config.Logging.FileSizeLimitMb, 1, 1024);
+            }
+
             return warnings;
+        }
+
+        private static bool IsValidLogLevel(string level)
+        {
+            return level.Equals("Verbose", StringComparison.OrdinalIgnoreCase)
+                   || level.Equals("Debug", StringComparison.OrdinalIgnoreCase)
+                   || level.Equals("Information", StringComparison.OrdinalIgnoreCase)
+                   || level.Equals("Warning", StringComparison.OrdinalIgnoreCase)
+                   || level.Equals("Error", StringComparison.OrdinalIgnoreCase)
+                   || level.Equals("Fatal", StringComparison.OrdinalIgnoreCase);
         }
 
         private static AppConfig Clone(AppConfig config)
@@ -367,4 +404,3 @@ namespace ExpandScreen.Services.Configuration
         }
     }
 }
-

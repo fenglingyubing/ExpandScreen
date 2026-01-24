@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using ExpandScreen.Protocol.Messages;
+using ExpandScreen.Utils;
 
 namespace ExpandScreen.Protocol.Network
 {
@@ -153,7 +154,7 @@ namespace ExpandScreen.Protocol.Network
                         if (queueDelay.TotalMilliseconds > 100)
                         {
                             // 如果排队延迟超过100ms，记录警告
-                            Console.WriteLine($"[NetworkSender] High queue delay: {queueDelay.TotalMilliseconds:F2}ms");
+                            LogHelper.Warning($"[NetworkSender] High queue delay: {queueDelay.TotalMilliseconds:F2}ms");
                         }
                     }
                     else

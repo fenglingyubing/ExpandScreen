@@ -15,24 +15,21 @@ namespace ExpandScreen.UI
         {
             base.OnStartup(e);
 
-            // 配置Serilog日志
-            Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Debug()
-                .WriteTo.Console()
-                .WriteTo.File("logs/expandscreen-.log", rollingInterval: RollingInterval.Day)
-                .CreateLogger();
-
+            // Bootstrap Serilog (reconfigured after config load)
+            SerilogConfigurator.Apply(new LoggingConfig());
             Log.Information("ExpandScreen 启动");
 
             ShutdownStarted += (_, _) => IsShuttingDown = true;
 
             // Load config + apply (theme, autostart, minimize-to-tray behavior via MainWindow)
             var config = ConfigService.LoadAsync().GetAwaiter().GetResult();
+            SerilogConfigurator.Apply(config.Logging);
             ThemeManager.ApplyTheme(config.General.Theme);
             AutoStartService.Apply(config.General.AutoStart);
 
             ConfigService.ConfigChanged += (_, args) =>
             {
+                SerilogConfigurator.Apply(args.Config.Logging);
                 ThemeManager.ApplyTheme(args.Config.General.Theme);
                 AutoStartService.Apply(args.Config.General.AutoStart);
             };

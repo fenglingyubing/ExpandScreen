@@ -227,7 +227,7 @@ namespace ExpandScreen.Core.Encode
                     }
                     catch (Exception ex)
                     {
-                        LogHelper.Error($"编码帧失败: {ex.Message}");
+                        LogHelper.Error($"编码帧失败: {ex.Message}", ex);
                     }
                 }
             }
@@ -237,7 +237,7 @@ namespace ExpandScreen.Core.Encode
             }
             catch (Exception ex)
             {
-                LogHelper.Error($"编码循环异常: {ex.Message}");
+                LogHelper.Error($"编码循环异常: {ex.Message}", ex);
             }
             finally
             {

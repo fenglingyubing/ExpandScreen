@@ -196,7 +196,7 @@ Log.Warning("Frame dropped due to timeout");
 Log.Error(ex, "Failed to encode frame");
 ```
 
-日志文件位置：`logs/expandscreen-<date>.log`
+日志文件位置：`%LOCALAPPDATA%\\ExpandScreen\\logs\\expandscreen-<date>.log`
 
 ### 性能分析
 
@@ -274,14 +274,16 @@ dotnet restore ExpandScreen.sln
 
 ### Q: 如何切换日志级别
 
-**A:** 编辑日志配置：
+**A:** 推荐通过配置文件设置（支持热更新）：
 
-```csharp
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()  // 改为 Information、Warning、Error等
-    .WriteTo.Console()
-    .WriteTo.File("logs/app.log")
-    .CreateLogger();
+编辑配置文件（设置页“关于”可看到路径），增加/修改：
+
+```json
+{
+  "logging": {
+    "minimumLevel": "Information"
+  }
+}
 ```
 
 ### Q: Visual Studio无法加载项目

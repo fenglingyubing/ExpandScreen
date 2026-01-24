@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using ExpandScreen.Services.Configuration;
+using ExpandScreen.Services.Diagnostics;
 using ExpandScreen.UI.Services;
 using ExpandScreen.UI.ViewModels;
+using ExpandScreen.Utils;
 
 namespace ExpandScreen.UI.Views
 {
@@ -85,6 +88,51 @@ namespace ExpandScreen.UI.Views
                 Owner = this
             };
             updateWindow.ShowDialog();
+        }
+
+        private void OpenLogDirectory_Click(object sender, RoutedEventArgs e)
+        {
+            string logDir = AppPaths.GetLogDirectory();
+            Directory.CreateDirectory(logDir);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = logDir,
+                UseShellExecute = true
+            });
+        }
+
+        private async void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current is not App app)
+            {
+                return;
+            }
+
+            try
+            {
+                var config = app.ConfigService.GetSnapshot();
+                string zipPath = await DiagnosticsExportService.ExportAsync(config, app.ConfigService.ConfigPath);
+
+                System.Windows.MessageBox.Show(
+                    $"诊断包已导出：\n{zipPath}",
+                    "导出完成",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = zipPath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(
+                    $"导出失败：{ex.Message}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)

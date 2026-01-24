@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using ExpandScreen.Protocol.Messages;
+using ExpandScreen.Utils;
 
 namespace ExpandScreen.Protocol.Network
 {
@@ -23,6 +24,10 @@ namespace ExpandScreen.Protocol.Network
         private readonly int _heartbeatIntervalMs;
         private readonly int _heartbeatTimeoutMs;
         private DateTime _lastHeartbeatReceived;
+        private readonly object _rttLock = new();
+        private double _lastHeartbeatRttMs;
+        private double _averageHeartbeatRttMs;
+        private int _heartbeatRttSamples;
 
         /// <summary>
         /// 会话ID
@@ -339,8 +344,21 @@ namespace ExpandScreen.Protocol.Network
                 ulong currentTime = MessageSerializer.GetTimestampMs();
                 ulong rtt = currentTime - ack.OriginalTimestamp;
 
-                // 可以在这里记录RTT统计
-                Console.WriteLine($"[NetworkSession] RTT: {rtt}ms");
+                lock (_rttLock)
+                {
+                    _lastHeartbeatRttMs = rtt;
+                    _averageHeartbeatRttMs = (_averageHeartbeatRttMs * _heartbeatRttSamples + rtt) / (_heartbeatRttSamples + 1);
+                    _heartbeatRttSamples++;
+                }
+
+                if (rtt > 100)
+                {
+                    LogHelper.Warning($"[NetworkSession] High heartbeat RTT: {rtt}ms");
+                }
+                else
+                {
+                    LogHelper.Debug($"[NetworkSession] Heartbeat RTT: {rtt}ms");
+                }
             }
         }
 
@@ -349,13 +367,23 @@ namespace ExpandScreen.Protocol.Network
         /// </summary>
         public SessionStatistics GetStatistics()
         {
+            double lastRtt;
+            double avgRtt;
+            lock (_rttLock)
+            {
+                lastRtt = _lastHeartbeatRttMs;
+                avgRtt = _averageHeartbeatRttMs;
+            }
+
             return new SessionStatistics
             {
                 SessionId = _sessionId,
                 IsHandshakeCompleted = _isHandshakeCompleted,
                 SenderStats = _sender.GetStatistics(),
                 ReceiverStats = _receiver.GetStatistics(),
-                TimeSinceLastHeartbeat = (DateTime.UtcNow - _lastHeartbeatReceived).TotalMilliseconds
+                TimeSinceLastHeartbeat = (DateTime.UtcNow - _lastHeartbeatReceived).TotalMilliseconds,
+                LastHeartbeatRttMs = lastRtt,
+                AverageHeartbeatRttMs = avgRtt
             };
         }
 
@@ -366,17 +394,19 @@ namespace ExpandScreen.Protocol.Network
 
         private void OnConnectionClosed(object? sender, EventArgs e)
         {
-            Console.WriteLine("[NetworkSession] Connection closed");
+            LogHelper.Info("[NetworkSession] Connection closed");
             ConnectionClosed?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnHeartbeatTimeout()
         {
+            LogHelper.Warning("[NetworkSession] Heartbeat timeout");
             HeartbeatTimeout?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnSessionError(Exception ex)
         {
+            LogHelper.Error("[NetworkSession] Session error", ex);
             SessionError?.Invoke(this, ex);
         }
 
@@ -418,5 +448,7 @@ namespace ExpandScreen.Protocol.Network
         public SenderStatistics? SenderStats { get; set; }
         public ReceiverStatistics? ReceiverStats { get; set; }
         public double TimeSinceLastHeartbeat { get; set; }
+        public double LastHeartbeatRttMs { get; set; }
+        public double AverageHeartbeatRttMs { get; set; }
     }
 }

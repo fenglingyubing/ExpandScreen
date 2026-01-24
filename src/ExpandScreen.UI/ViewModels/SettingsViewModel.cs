@@ -36,6 +36,7 @@ namespace ExpandScreen.UI.ViewModels
         private PerformanceMode _performanceMode;
         private int _encodingThreadCount;
         private string _configPath = string.Empty;
+        private LoggingConfig _logging = new();
 
         public SettingsViewModel(AppConfig initial, string configPath)
         {
@@ -198,6 +199,7 @@ namespace ExpandScreen.UI.ViewModels
 
             PerformanceMode = config.Performance.Mode;
             EncodingThreadCount = config.Performance.EncodingThreadCount;
+            _logging = config.Logging ?? new LoggingConfig();
         }
 
         public AppConfig ToConfig()
@@ -229,6 +231,14 @@ namespace ExpandScreen.UI.ViewModels
                 {
                     Mode = PerformanceMode,
                     EncodingThreadCount = EncodingThreadCount
+                },
+                Logging = new LoggingConfig
+                {
+                    MinimumLevel = _logging.MinimumLevel,
+                    RetentionDays = _logging.RetentionDays,
+                    RetainedFileCountLimit = _logging.RetainedFileCountLimit,
+                    FileSizeLimitMb = _logging.FileSizeLimitMb,
+                    RollOnFileSizeLimit = _logging.RollOnFileSizeLimit
                 }
             };
         }

@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using ExpandScreen.Protocol.Messages;
+using ExpandScreen.Utils;
 
 namespace ExpandScreen.Protocol.Network
 {
@@ -80,7 +81,7 @@ namespace ExpandScreen.Protocol.Network
                     if (_lastSequenceNumber > 0 && header.SequenceNumber != _lastSequenceNumber + 1)
                     {
                         long dropped = header.SequenceNumber - _lastSequenceNumber - 1;
-                        Console.WriteLine($"[NetworkReceiver] Detected {dropped} dropped message(s)");
+                        LogHelper.Warning($"[NetworkReceiver] Detected {dropped} dropped message(s)");
                     }
                     _lastSequenceNumber = header.SequenceNumber;
 

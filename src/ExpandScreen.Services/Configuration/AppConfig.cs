@@ -33,6 +33,7 @@ namespace ExpandScreen.Services.Configuration
         public VideoConfig Video { get; set; } = new();
         public NetworkConfig Network { get; set; } = new();
         public PerformanceConfig Performance { get; set; } = new();
+        public LoggingConfig Logging { get; set; } = new();
 
         public static AppConfig CreateDefault() => new();
     }
@@ -66,5 +67,13 @@ namespace ExpandScreen.Services.Configuration
         public PerformanceMode Mode { get; set; } = PerformanceMode.Balanced;
         public int EncodingThreadCount { get; set; } = 0;
     }
-}
 
+    public sealed class LoggingConfig
+    {
+        public string MinimumLevel { get; set; } = "Information";
+        public int RetentionDays { get; set; } = 14;
+        public int RetainedFileCountLimit { get; set; } = 14;
+        public int FileSizeLimitMb { get; set; } = 20;
+        public bool RollOnFileSizeLimit { get; set; } = true;
+    }
+}

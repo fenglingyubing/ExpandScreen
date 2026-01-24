@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Settings
@@ -41,17 +45,25 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,7 +119,16 @@ fun MainScreen(
             bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
         )
 
-    Box(
+    val contentPadding =
+        PaddingValues(
+            start = baseInsets.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+            end = baseInsets.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+            top = baseInsets.calculateTopPadding(),
+            bottom =
+                baseInsets.calculateBottomPadding() + WindowInsets.ime.asPaddingValues().calculateBottomPadding(),
+        )
+
+    BoxWithConstraints(
         modifier =
             Modifier
                 .fillMaxSize()
@@ -145,66 +166,122 @@ fun MainScreen(
                     }
                 },
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding =
-                PaddingValues(
-                    start = baseInsets.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
-                    end = baseInsets.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
-                    top = baseInsets.calculateTopPadding(),
-                    bottom =
-                        baseInsets.calculateBottomPadding() +
-                            WindowInsets.ime.asPaddingValues().calculateBottomPadding(),
-                ),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
-                Header(
-                    connectionState = state.connectionState,
-                    onOpenSettings = onOpenSettings,
-                )
-            }
+        val isWide = maxWidth >= 840.dp
+        if (isWide) {
+            val scroll = rememberScrollState()
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(contentPadding)
+                        .verticalScroll(scroll),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Header(
+                        connectionState = state.connectionState,
+                        onOpenSettings = onOpenSettings,
+                    )
+                    QuickConnectCard(
+                        host = state.host,
+                        port = state.port,
+                        androidDeviceId = state.androidDeviceId,
+                        androidDeviceName = state.androidDeviceName,
+                        preferredConnection = state.preferredConnection,
+                        connectionState = state.connectionState,
+                        onHostChange = onHostChange,
+                        onPortChange = onPortChange,
+                        onDeviceIdChange = onDeviceIdChange,
+                        onDeviceNameChange = onDeviceNameChange,
+                        onConnectWifi = onConnectWifi,
+                        onConnectUsb = onConnectUsb,
+                        onDisconnect = onDisconnect,
+                        onRequestQrScan = onRequestQrScan,
+                    )
+                    WifiDiscoveryCard(
+                        discovered = state.discoveredWifiServers,
+                        isDiscovering = state.isWifiDiscovering,
+                        connectionState = state.connectionState,
+                        onDiscover = onDiscoverWifi,
+                        onConnect = onConnectDiscovered,
+                    )
+                }
 
-            item {
-                QuickConnectCard(
-                    host = state.host,
-                    port = state.port,
-                    androidDeviceId = state.androidDeviceId,
-                    androidDeviceName = state.androidDeviceName,
-                    preferredConnection = state.preferredConnection,
-                    connectionState = state.connectionState,
-                    onHostChange = onHostChange,
-                    onPortChange = onPortChange,
-                    onDeviceIdChange = onDeviceIdChange,
-                    onDeviceNameChange = onDeviceNameChange,
-                    onConnectWifi = onConnectWifi,
-                    onConnectUsb = onConnectUsb,
-                    onDisconnect = onDisconnect,
-                    onRequestQrScan = onRequestQrScan,
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    DeviceHistoryCard(
+                        devices = state.devices,
+                        connectionState = state.connectionState,
+                        onScanLan = onDiscoverWifi,
+                        onConnect = onConnectHistory,
+                        onToggleFavorite = onToggleFavorite,
+                        onDelete = onDeleteDevice,
+                    )
+                    ErrorCard(lastError = state.lastError)
+                }
             }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = contentPadding,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item {
+                    Header(
+                        connectionState = state.connectionState,
+                        onOpenSettings = onOpenSettings,
+                    )
+                }
 
-            item {
-                WifiDiscoveryCard(
-                    discovered = state.discoveredWifiServers,
-                    isDiscovering = state.isWifiDiscovering,
-                    connectionState = state.connectionState,
-                    onDiscover = onDiscoverWifi,
-                    onConnect = onConnectDiscovered,
-                )
-            }
+                item {
+                    QuickConnectCard(
+                        host = state.host,
+                        port = state.port,
+                        androidDeviceId = state.androidDeviceId,
+                        androidDeviceName = state.androidDeviceName,
+                        preferredConnection = state.preferredConnection,
+                        connectionState = state.connectionState,
+                        onHostChange = onHostChange,
+                        onPortChange = onPortChange,
+                        onDeviceIdChange = onDeviceIdChange,
+                        onDeviceNameChange = onDeviceNameChange,
+                        onConnectWifi = onConnectWifi,
+                        onConnectUsb = onConnectUsb,
+                        onDisconnect = onDisconnect,
+                        onRequestQrScan = onRequestQrScan,
+                    )
+                }
 
-            item {
-                DeviceHistoryCard(
-                    devices = state.devices,
-                    onConnect = onConnectHistory,
-                    onToggleFavorite = onToggleFavorite,
-                    onDelete = onDeleteDevice,
-                )
-            }
+                item {
+                    WifiDiscoveryCard(
+                        discovered = state.discoveredWifiServers,
+                        isDiscovering = state.isWifiDiscovering,
+                        connectionState = state.connectionState,
+                        onDiscover = onDiscoverWifi,
+                        onConnect = onConnectDiscovered,
+                    )
+                }
 
-            item {
-                ErrorCard(lastError = state.lastError)
+                item {
+                    DeviceHistoryCard(
+                        devices = state.devices,
+                        connectionState = state.connectionState,
+                        onScanLan = onDiscoverWifi,
+                        onConnect = onConnectHistory,
+                        onToggleFavorite = onToggleFavorite,
+                        onDelete = onDeleteDevice,
+                    )
+                }
+
+                item {
+                    ErrorCard(lastError = state.lastError)
+                }
             }
         }
 
@@ -607,10 +684,13 @@ private fun DiscoveredServerRow(
 @Composable
 private fun DeviceHistoryCard(
     devices: List<WindowsDeviceEntity>,
+    connectionState: ConnectionState,
+    onScanLan: () -> Unit,
     onConnect: (WindowsDeviceEntity) -> Unit,
     onToggleFavorite: (WindowsDeviceEntity) -> Unit,
     onDelete: (WindowsDeviceEntity) -> Unit,
 ) {
+    var favoritesOnly by rememberSaveable { mutableStateOf(false) }
     Card(
         colors =
             CardDefaults.cardColors(
@@ -624,18 +704,38 @@ private fun DeviceHistoryCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = "History",
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "History",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+
+                val badge =
+                    when (connectionState) {
+                        ConnectionState.Connecting -> "CONNECTING"
+                        is ConnectionState.Connected -> "CONNECTED"
+                        ConnectionState.Disconnected -> "DISCONNECTED"
+                    }
+                Text(
+                    text = badge,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = FontFamily.Monospace,
+                    color =
+                        when (connectionState) {
+                            ConnectionState.Connecting -> Color(0xFFFFD36B)
+                            is ConnectionState.Connected -> Color(0xFF7CFAC6)
+                            ConnectionState.Disconnected -> Color(0xFFB8C7D9)
+                        },
+                )
+            }
             HorizontalDivider(color = Color(0xFF14323D).copy(alpha = 0.4f))
 
             if (devices.isEmpty()) {
-                Text(
-                    text = "No devices yet. Connect once and it’ll show up here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFFB8C7D9),
-                )
+                HistoryEmptyState(onScanLan = onScanLan)
                 return@Column
             }
 
@@ -644,14 +744,50 @@ private fun DeviceHistoryCard(
                     compareByDescending<WindowsDeviceEntity> { it.isFavorite }.thenByDescending { it.lastConnected },
                 )
 
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ordered.take(6).forEach { device ->
-                    DeviceRow(
-                        device = device,
-                        onClick = { onConnect(device) },
-                        onToggleFavorite = { onToggleFavorite(device) },
-                        onDelete = { onDelete(device) },
-                    )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = !favoritesOnly,
+                    onClick = { favoritesOnly = false },
+                    label = { Text("All") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Devices,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize),
+                        )
+                    },
+                )
+                FilterChip(
+                    selected = favoritesOnly,
+                    onClick = { favoritesOnly = true },
+                    label = { Text("Starred") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize),
+                        )
+                    },
+                )
+            }
+
+            val visibleDevices = if (favoritesOnly) ordered.filter { it.isFavorite } else ordered
+            if (visibleDevices.isEmpty()) {
+                Text(
+                    text = "No favorites yet — tap ★ or swipe right to star.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFB8C7D9),
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    visibleDevices.take(6).forEach { device ->
+                        SwipeableDeviceRow(
+                            device = device,
+                            onClick = { onConnect(device) },
+                            onToggleFavorite = { onToggleFavorite(device) },
+                            onDelete = { onDelete(device) },
+                        )
+                    }
                 }
             }
 
@@ -668,11 +804,103 @@ private fun DeviceHistoryCard(
 }
 
 @Composable
-private fun DeviceRow(
+@OptIn(ExperimentalMaterial3Api::class)
+private fun SwipeableDeviceRow(
     device: WindowsDeviceEntity,
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
+) {
+    var hasDeleted by remember(device.id) { mutableStateOf(false) }
+    val dismissState =
+        rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                when (value) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        onToggleFavorite()
+                        false
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> true
+                    SwipeToDismissBoxValue.Settled -> false
+                }
+            },
+        )
+
+    androidx.compose.runtime.LaunchedEffect(device.id, dismissState.currentValue) {
+        if (!hasDeleted && dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            hasDeleted = true
+            onDelete()
+        }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val value = dismissState.targetValue
+            val isFavoriteHint = value == SwipeToDismissBoxValue.StartToEnd
+            val isDeleteHint = value == SwipeToDismissBoxValue.EndToStart
+
+            val bg =
+                when {
+                    isDeleteHint -> Color(0xFF2A1B1F)
+                    isFavoriteHint -> Color(0xFF1A3A2F)
+                    else -> Color(0xFF0E1822)
+                }
+
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(MaterialTheme.shapes.large)
+                        .background(bg)
+                        .padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (device.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = null,
+                        tint = if (isFavoriteHint) Color(0xFFFFD36B) else Color(0xFFB8C7D9),
+                    )
+                    Text(
+                        text = if (device.isFavorite) "Unstar" else "Star",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color(0xFFE9F2FF),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Delete",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontFamily = FontFamily.Monospace,
+                        color = if (isDeleteHint) Color(0xFFFFA3B5) else Color(0xFFB8C7D9),
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = if (isDeleteHint) Color(0xFFFFA3B5) else Color(0xFFB8C7D9),
+                    )
+                }
+            }
+        },
+    ) {
+        DeviceRowContent(
+            device = device,
+            onClick = onClick,
+            onToggleFavorite = onToggleFavorite,
+        )
+    }
+}
+
+@Composable
+private fun DeviceRowContent(
+    device: WindowsDeviceEntity,
+    onClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
 ) {
     val pillColor =
         when (device.connectionType) {
@@ -701,6 +929,18 @@ private fun DeviceRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(
+            imageVector = if (device.connectionType == "USB") Icons.Filled.Usb else Icons.Filled.Wifi,
+            contentDescription = null,
+            tint = Color(0xFF7CFAC6).copy(alpha = 0.85f),
+            modifier =
+                Modifier
+                    .size(20.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(Color(0xFF0B1118).copy(alpha = 0.6f))
+                    .padding(2.dp),
+        )
+
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 text = device.deviceName,
@@ -745,13 +985,68 @@ private fun DeviceRow(
                 tint = if (device.isFavorite) Color(0xFFFFD36B) else LocalContentColor.current.copy(alpha = 0.9f),
             )
         }
+    }
+}
 
-        TextButton(onClick = onDelete) {
-            Text(
-                text = "Remove",
-                fontFamily = FontFamily.Monospace,
-                color = Color(0xFFFFA3B5),
+@Composable
+private fun HistoryEmptyState(onScanLan: () -> Unit) {
+    val borderBrush =
+        Brush.linearGradient(
+            0.0f to Color(0xFF1D3E3E).copy(alpha = 0.55f),
+            1.0f to Color(0xFF12252D).copy(alpha = 0.55f),
+        )
+
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(Color(0xFF0D141B).copy(alpha = 0.96f))
+                .drawBehind {
+                    val stroke = 1.dp.toPx()
+                    val dash = floatArrayOf(6.dp.toPx(), 8.dp.toPx())
+                    val effect = PathEffect.dashPathEffect(dash, 0f)
+                    drawRect(
+                        brush = borderBrush,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, pathEffect = effect),
+                    )
+                }
+                .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Devices,
+            contentDescription = null,
+            tint = Color(0xFF7CFAC6),
+            modifier = Modifier.size(28.dp),
+        )
+        Text(
+            text = "No devices yet",
+            style = MaterialTheme.typography.titleSmall,
+            color = Color(0xFFE9F2FF),
+        )
+        Text(
+            text = "Scan the LAN or connect once — history & favorites will live here.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFB8C7D9),
+        )
+        Button(
+            onClick = onScanLan,
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF133B3A),
+                    contentColor = Color(0xFFDCFFF1),
+                ),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Wifi,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
             )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Scan LAN")
         }
     }
 }

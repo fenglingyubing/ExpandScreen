@@ -48,6 +48,17 @@
         <item>performance</item>
     </string-array>
 
+    <string-array name="pref_display_theme_mode_entries">
+        <item>@string/pref_display_theme_mode_system</item>
+        <item>@string/pref_display_theme_mode_light</item>
+        <item>@string/pref_display_theme_mode_dark</item>
+    </string-array>
+    <string-array name="pref_display_theme_mode_values">
+        <item>system</item>
+        <item>light</item>
+        <item>dark</item>
+    </string-array>
+
     <string-array name="pref_network_preferred_connection_entries">
         <item>@string/pref_network_preferred_connection_wifi</item>
         <item>@string/pref_network_preferred_connection_usb</item>
@@ -57,4 +68,3 @@
         <item>usb</item>
     </string-array>
 </resources>
-

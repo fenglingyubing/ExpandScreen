@@ -76,6 +76,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
             ListPreference.SimpleSummaryProvider.getInstance()
         findPreference<ListPreference>("pref_perf_preset")?.summaryProvider =
             ListPreference.SimpleSummaryProvider.getInstance()
+        findPreference<ListPreference>("pref_display_theme_mode")?.summaryProvider =
+            ListPreference.SimpleSummaryProvider.getInstance()
         findPreference<ListPreference>("pref_network_preferred_connection")?.summaryProvider =
             ListPreference.SimpleSummaryProvider.getInstance()
 

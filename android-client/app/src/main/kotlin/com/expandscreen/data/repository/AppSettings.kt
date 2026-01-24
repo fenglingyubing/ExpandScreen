@@ -83,6 +83,8 @@ data class DisplaySettings(
     val keepScreenOn: Boolean = true,
     val allowRotation: Boolean = false,
     val fullScreen: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.System,
+    val dynamicColor: Boolean = true,
 )
 
 @Serializable
@@ -92,6 +94,18 @@ data class NetworkSettings(
 )
 
 @Serializable
+enum class ThemeMode {
+    @SerialName("system")
+    System,
+
+    @SerialName("light")
+    Light,
+
+    @SerialName("dark")
+    Dark,
+}
+
+@Serializable
 enum class PreferredConnection {
     @SerialName("wifi")
     Wifi,
@@ -99,4 +113,3 @@ enum class PreferredConnection {
     @SerialName("usb")
     Usb,
 }
-

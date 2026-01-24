@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,14 +29,25 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expandscreen.R
+import com.expandscreen.data.repository.SettingsRepository
 import com.expandscreen.ui.theme.ExpandScreenTheme
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class OpenSourceLicensesActivity : ComponentActivity() {
+    @Inject lateinit var settingsRepository: SettingsRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ExpandScreenTheme {
+            val settings by settingsRepository.settings.collectAsStateWithLifecycle()
+            ExpandScreenTheme(
+                themeMode = settings.display.themeMode,
+                dynamicColor = settings.display.dynamicColor,
+            ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     LicensesScreen(onClose = { finish() })
                 }
@@ -127,4 +139,3 @@ private fun LicensesScreen(onClose: () -> Unit) {
         }
     }
 }
-

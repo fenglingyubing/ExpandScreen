@@ -1,5 +1,7 @@
 package com.expandscreen.ui
 
+import android.app.Activity
+import android.app.ActivityOptions
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,12 +24,25 @@ fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
         viewModel.events.collect { event ->
             when (event) {
                 is MainUiEvent.NavigateToDisplay -> {
-                    context.startActivity(
+                    val intent =
                         Intent(context, DisplayActivity::class.java).apply {
                             putExtra(DisplayActivity.EXTRA_DEVICE_ID, event.deviceId)
                             putExtra(DisplayActivity.EXTRA_CONNECTION_TYPE, event.connectionType)
-                        },
-                    )
+                        }
+
+                    val activity = context as? Activity
+                    if (activity != null) {
+                        activity.startActivity(
+                            intent,
+                            ActivityOptions.makeCustomAnimation(
+                                activity,
+                                android.R.anim.fade_in,
+                                android.R.anim.fade_out,
+                            ).toBundle(),
+                        )
+                    } else {
+                        context.startActivity(intent)
+                    }
                 }
                 MainUiEvent.NavigateToSettings -> {
                     context.startActivity(Intent(context, SettingsActivity::class.java))

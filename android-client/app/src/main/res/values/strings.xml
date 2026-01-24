@@ -88,6 +88,15 @@
     <string name="pref_perf_low_latency_title">Low latency mode</string>
     <string name="pref_perf_low_latency_summary">Toggles decoder low-latency hint (Android 11+)</string>
 
+    <string name="pref_display_theme_mode_title">Theme</string>
+    <string name="pref_display_theme_mode_summary">Choose light/dark or follow system</string>
+    <string name="pref_display_theme_mode_system">Follow system</string>
+    <string name="pref_display_theme_mode_light">Light</string>
+    <string name="pref_display_theme_mode_dark">Dark</string>
+
+    <string name="pref_display_dynamic_color_title">Dynamic color</string>
+    <string name="pref_display_dynamic_color_summary">Use Material You colors (Android 12+)</string>
+
     <string name="pref_display_keep_screen_on_title">Keep screen on</string>
     <string name="pref_display_keep_screen_on_summary">Prevents the display from sleeping while streaming</string>
     <string name="pref_display_allow_rotation_title">Allow rotation</string>

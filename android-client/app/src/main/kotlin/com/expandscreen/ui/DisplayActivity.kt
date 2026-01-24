@@ -15,13 +15,16 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -65,11 +70,13 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import timber.log.Timber
 
 /**
@@ -155,7 +162,11 @@ class DisplayActivity : ComponentActivity() {
         applyOrientationPolicy(initialSettings.display.allowRotation)
 
         setContent {
-            ExpandScreenTheme {
+            val settings by settingsRepository.settings.collectAsStateWithLifecycle()
+            ExpandScreenTheme(
+                themeMode = settings.display.themeMode,
+                dynamicColor = settings.display.dynamicColor,
+            ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
                     DisplayScreen(
                         uiState = uiState,
@@ -423,6 +434,14 @@ private fun DisplayScreen(
     glSurfaceViewProvider: (GLSurfaceView) -> Unit,
 ) {
     val state by uiState.collectAsStateWithLifecycle()
+    val hudOffset = androidx.compose.runtime.remember { mutableStateOf(IntOffset.Zero) }
+    val showRotationToast = androidx.compose.runtime.remember { mutableStateOf(false) }
+
+    androidx.compose.runtime.LaunchedEffect(state.allowRotation) {
+        showRotationToast.value = true
+        delay(900)
+        showRotationToast.value = false
+    }
 
     val hudBrush =
         Brush.linearGradient(
@@ -438,6 +457,7 @@ private fun DisplayScreen(
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onDoubleTap = { onToggleMenu() },
+                            onLongPress = { onToggleMenu() },
                             onTap = { if (state.showMenu) onHideMenu() },
                         )
                     }
@@ -453,6 +473,30 @@ private fun DisplayScreen(
         )
 
         AnimatedVisibility(
+            visible = state.connectionState == ConnectionState.Connecting || state.videoWidth <= 0,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            DisplayLoadingOverlay(
+                modifier = Modifier.align(Alignment.Center),
+                state = state,
+                brush = hudBrush,
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showRotationToast.value && !state.showMenu,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            RotationToast(
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp),
+                brush = hudBrush,
+                allowRotation = state.allowRotation,
+            )
+        }
+
+        AnimatedVisibility(
             visible = state.showHud && !state.showMenu,
             enter = fadeIn(),
             exit = fadeOut(),
@@ -461,7 +505,19 @@ private fun DisplayScreen(
                 modifier =
                     Modifier
                         .align(Alignment.TopStart)
-                        .padding(14.dp),
+                        .padding(14.dp)
+                        .offset { hudOffset.value }
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                hudOffset.value =
+                                    hudOffset.value +
+                                        IntOffset(
+                                            dragAmount.x.roundToInt(),
+                                            dragAmount.y.roundToInt(),
+                                        )
+                            }
+                        },
                 brush = hudBrush,
                 state = state,
             )
@@ -486,6 +542,62 @@ private fun DisplayScreen(
             )
         }
     }
+}
+
+@Composable
+private fun DisplayLoadingOverlay(
+    modifier: Modifier,
+    state: DisplayUiState,
+    brush: Brush,
+) {
+    val title =
+        when (state.connectionState) {
+            ConnectionState.Connecting -> "Connecting…"
+            is ConnectionState.Connected -> "Starting stream…"
+            ConnectionState.Disconnected -> "Disconnected"
+        }
+
+    Column(
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(18.dp))
+                .background(brush)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = Color(0xFFE9F2FF),
+        )
+        Text(
+            text = "Tip: double-tap or long-press to open menu",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFB8C7D9),
+            fontFamily = FontFamily.Monospace,
+        )
+    }
+}
+
+@Composable
+private fun RotationToast(
+    modifier: Modifier,
+    brush: Brush,
+    allowRotation: Boolean,
+) {
+    val text = if (allowRotation) "Rotation: ALLOWED" else "Rotation: LOCKED"
+    Text(
+        text = text,
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(brush)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = Color(0xFFB9FFEA),
+        fontFamily = FontFamily.Monospace,
+    )
 }
 
 @Composable
@@ -693,8 +805,8 @@ private fun ModeChip(
             Modifier
                 .clip(RoundedCornerShape(999.dp))
                 .background(bg)
+                .clickable(onClick = onClick)
                 .padding(horizontal = 10.dp, vertical = 6.dp)
-                .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) },
     ) {
         Text(
             text = label,

@@ -77,6 +77,14 @@ class SharedPreferencesSettingsRepository @Inject constructor(
         update { it.copy(display = it.display.copy(fullScreen = enabled)) }
     }
 
+    override fun setThemeMode(mode: ThemeMode) {
+        update { it.copy(display = it.display.copy(themeMode = mode)) }
+    }
+
+    override fun setDynamicColor(enabled: Boolean) {
+        update { it.copy(display = it.display.copy(dynamicColor = enabled)) }
+    }
+
     override fun setPreferredConnection(connection: PreferredConnection) {
         update { it.copy(network = it.network.copy(preferredConnection = connection)) }
     }
@@ -130,6 +138,8 @@ class SharedPreferencesSettingsRepository @Inject constructor(
                 keepScreenOn = prefs.getBoolean(SettingsRepository.DISPLAY_KEEP_SCREEN_ON, default.display.keepScreenOn),
                 allowRotation = prefs.getBoolean(SettingsRepository.DISPLAY_ALLOW_ROTATION, default.display.allowRotation),
                 fullScreen = prefs.getBoolean(SettingsRepository.DISPLAY_FULLSCREEN, default.display.fullScreen),
+                themeMode = parseThemeMode(prefs.getString(SettingsRepository.DISPLAY_THEME_MODE, null)),
+                dynamicColor = prefs.getBoolean(SettingsRepository.DISPLAY_DYNAMIC_COLOR, default.display.dynamicColor),
             )
 
         val network =
@@ -155,6 +165,8 @@ class SharedPreferencesSettingsRepository @Inject constructor(
             .putBoolean(SettingsRepository.DISPLAY_KEEP_SCREEN_ON, settings.display.keepScreenOn)
             .putBoolean(SettingsRepository.DISPLAY_ALLOW_ROTATION, settings.display.allowRotation)
             .putBoolean(SettingsRepository.DISPLAY_FULLSCREEN, settings.display.fullScreen)
+            .putString(SettingsRepository.DISPLAY_THEME_MODE, themeModePrefValue(settings.display.themeMode))
+            .putBoolean(SettingsRepository.DISPLAY_DYNAMIC_COLOR, settings.display.dynamicColor)
             .putString(
                 SettingsRepository.NETWORK_PREFERRED_CONNECTION,
                 preferredConnectionPrefValue(settings.network.preferredConnection),
@@ -242,6 +254,22 @@ class SharedPreferencesSettingsRepository @Inject constructor(
         return when (connection) {
             PreferredConnection.Wifi -> "wifi"
             PreferredConnection.Usb -> "usb"
+        }
+    }
+
+    private fun parseThemeMode(value: String?): ThemeMode {
+        return when (value) {
+            "light" -> ThemeMode.Light
+            "dark" -> ThemeMode.Dark
+            else -> ThemeMode.System
+        }
+    }
+
+    private fun themeModePrefValue(mode: ThemeMode): String {
+        return when (mode) {
+            ThemeMode.System -> "system"
+            ThemeMode.Light -> "light"
+            ThemeMode.Dark -> "dark"
         }
     }
 }

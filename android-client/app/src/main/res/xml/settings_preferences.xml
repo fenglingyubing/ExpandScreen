@@ -50,6 +50,20 @@
     <PreferenceCategory
         android:title="@string/pref_category_display">
 
+        <ListPreference
+            android:key="pref_display_theme_mode"
+            android:title="@string/pref_display_theme_mode_title"
+            android:summary="@string/pref_display_theme_mode_summary"
+            android:entries="@array/pref_display_theme_mode_entries"
+            android:entryValues="@array/pref_display_theme_mode_values"
+            android:defaultValue="system" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_display_dynamic_color"
+            android:title="@string/pref_display_dynamic_color_title"
+            android:summary="@string/pref_display_dynamic_color_summary"
+            android:defaultValue="true" />
+
         <SwitchPreferenceCompat
             android:key="pref_display_keep_screen_on"
             android:title="@string/pref_display_keep_screen_on_title"
@@ -116,4 +130,3 @@
     </PreferenceCategory>
 
 </PreferenceScreen>
-

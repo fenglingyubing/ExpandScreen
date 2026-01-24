@@ -15,6 +15,8 @@ interface SettingsRepository {
     fun setKeepScreenOn(enabled: Boolean)
     fun setAllowRotation(enabled: Boolean)
     fun setFullScreen(enabled: Boolean)
+    fun setThemeMode(mode: ThemeMode)
+    fun setDynamicColor(enabled: Boolean)
 
     fun setPreferredConnection(connection: PreferredConnection)
     fun setAutoReconnect(enabled: Boolean)
@@ -35,9 +37,10 @@ interface SettingsRepository {
         const val DISPLAY_KEEP_SCREEN_ON = "pref_display_keep_screen_on"
         const val DISPLAY_ALLOW_ROTATION = "pref_display_allow_rotation"
         const val DISPLAY_FULLSCREEN = "pref_display_fullscreen"
+        const val DISPLAY_THEME_MODE = "pref_display_theme_mode"
+        const val DISPLAY_DYNAMIC_COLOR = "pref_display_dynamic_color"
 
         const val NETWORK_PREFERRED_CONNECTION = "pref_network_preferred_connection"
         const val NETWORK_AUTO_RECONNECT = "pref_network_auto_reconnect"
     }
 }
-

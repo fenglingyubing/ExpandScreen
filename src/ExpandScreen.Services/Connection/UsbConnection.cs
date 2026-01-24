@@ -12,8 +12,8 @@ namespace ExpandScreen.Services.Connection
         private TcpClient? _tcpClient;
         private NetworkStream? _networkStream;
         private string? _currentDeviceId;
-        private int _localPort = 15555; // 本地转发端口
-        private int _remotePort = 15555; // 远程端口
+        private int _localPort; // 本地转发端口
+        private int _remotePort; // 远程端口
         private bool _disposed;
 
         private readonly SemaphoreSlim _sendLock = new(1, 1);
@@ -30,9 +30,16 @@ namespace ExpandScreen.Services.Connection
         public event EventHandler<Exception>? ConnectionError;
 
         public UsbConnection(AdbHelper? adbHelper = null)
+            : this(15555, 15555, adbHelper)
+        {
+        }
+
+        public UsbConnection(int localPort, int remotePort, AdbHelper? adbHelper = null)
         {
             _adbHelper = adbHelper ?? new AdbHelper();
-            LogHelper.Info("UsbConnection initialized");
+            _localPort = localPort;
+            _remotePort = remotePort;
+            LogHelper.Info($"UsbConnection initialized (localPort={_localPort}, remotePort={_remotePort})");
         }
 
         /// <summary>

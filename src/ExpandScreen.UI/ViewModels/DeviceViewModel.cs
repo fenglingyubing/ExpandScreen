@@ -19,8 +19,16 @@ namespace ExpandScreen.UI.ViewModels
         private string _deviceId = string.Empty;
         private string _deviceName = string.Empty;
         private string _ipAddress = string.Empty;
+        private string _manufacturer = string.Empty;
+        private string _model = string.Empty;
+        private string _adbStatus = string.Empty;
+        private string _transport = "USB";
+        private string _sessionProfile = string.Empty;
+        private uint? _monitorId;
         private DeviceStatus _status = DeviceStatus.Disconnected;
         private string _statusMessage = "未连接";
+        private string _summaryLine = string.Empty;
+        private string? _lastError;
         private bool _isSelected;
 
         public string DeviceId
@@ -38,7 +46,85 @@ namespace ExpandScreen.UI.ViewModels
         public string IpAddress
         {
             get => _ipAddress;
-            set => SetProperty(ref _ipAddress, value);
+            set
+            {
+                if (SetProperty(ref _ipAddress, value))
+                {
+                    UpdateSummaryLine();
+                }
+            }
+        }
+
+        public string Manufacturer
+        {
+            get => _manufacturer;
+            set
+            {
+                if (SetProperty(ref _manufacturer, value))
+                {
+                    UpdateSummaryLine();
+                }
+            }
+        }
+
+        public string Model
+        {
+            get => _model;
+            set
+            {
+                if (SetProperty(ref _model, value))
+                {
+                    UpdateSummaryLine();
+                }
+            }
+        }
+
+        public string AdbStatus
+        {
+            get => _adbStatus;
+            set
+            {
+                if (SetProperty(ref _adbStatus, value))
+                {
+                    UpdateSummaryLine();
+                }
+            }
+        }
+
+        public string Transport
+        {
+            get => _transport;
+            set
+            {
+                if (SetProperty(ref _transport, value))
+                {
+                    UpdateSummaryLine();
+                }
+            }
+        }
+
+        public string SessionProfile
+        {
+            get => _sessionProfile;
+            set
+            {
+                if (SetProperty(ref _sessionProfile, value))
+                {
+                    UpdateSummaryLine();
+                }
+            }
+        }
+
+        public uint? MonitorId
+        {
+            get => _monitorId;
+            set
+            {
+                if (SetProperty(ref _monitorId, value))
+                {
+                    UpdateSummaryLine();
+                }
+            }
         }
 
         public DeviceStatus Status
@@ -49,6 +135,7 @@ namespace ExpandScreen.UI.ViewModels
                 if (SetProperty(ref _status, value))
                 {
                     UpdateStatusMessage();
+                    UpdateSummaryLine();
                 }
             }
         }
@@ -57,6 +144,25 @@ namespace ExpandScreen.UI.ViewModels
         {
             get => _statusMessage;
             private set => SetProperty(ref _statusMessage, value);
+        }
+
+        public string SummaryLine
+        {
+            get => _summaryLine;
+            private set => SetProperty(ref _summaryLine, value);
+        }
+
+        public string? LastError
+        {
+            get => _lastError;
+            set
+            {
+                if (SetProperty(ref _lastError, value))
+                {
+                    UpdateStatusMessage();
+                    UpdateSummaryLine();
+                }
+            }
         }
 
         public bool IsSelected
@@ -75,6 +181,48 @@ namespace ExpandScreen.UI.ViewModels
                 DeviceStatus.Error => "连接失败",
                 _ => "未知状态"
             };
+        }
+
+        private void UpdateSummaryLine()
+        {
+            var parts = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(Transport))
+            {
+                parts.Add(Transport);
+            }
+
+            if (!string.IsNullOrWhiteSpace(Manufacturer) || !string.IsNullOrWhiteSpace(Model))
+            {
+                parts.Add($"{Manufacturer} {Model}".Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(AdbStatus))
+            {
+                parts.Add($"ADB:{AdbStatus}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(IpAddress))
+            {
+                parts.Add($"IP:{IpAddress}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(SessionProfile))
+            {
+                parts.Add(SessionProfile);
+            }
+
+            if (MonitorId.HasValue)
+            {
+                parts.Add($"MON:{MonitorId.Value}");
+            }
+
+            if (Status == DeviceStatus.Error && !string.IsNullOrWhiteSpace(LastError))
+            {
+                parts.Add(LastError!);
+            }
+
+            SummaryLine = string.Join(" • ", parts);
         }
     }
 }

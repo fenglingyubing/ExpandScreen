@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ExpandScreen.Core\ExpandScreen.Core.csproj" />
     <ProjectReference Include="..\ExpandScreen.Protocol\ExpandScreen.Protocol.csproj" />
     <ProjectReference Include="..\ExpandScreen.Utils\ExpandScreen.Utils.csproj" />
   </ItemGroup>

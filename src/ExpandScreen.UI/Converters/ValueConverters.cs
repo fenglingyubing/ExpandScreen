@@ -104,4 +104,32 @@ namespace ExpandScreen.UI.Converters
             throw new NotImplementedException();
         }
     }
+
+    public class DeviceStatusToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is not DeviceStatus status)
+            {
+                return Visibility.Collapsed;
+            }
+
+            var mode = parameter?.ToString()?.Trim().ToLowerInvariant();
+            return mode switch
+            {
+                "connect" => status == DeviceStatus.Disconnected || status == DeviceStatus.Error
+                    ? Visibility.Visible
+                    : Visibility.Collapsed,
+                "disconnect" => status == DeviceStatus.Connected
+                    ? Visibility.Visible
+                    : Visibility.Collapsed,
+                _ => Visibility.Collapsed
+            };
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

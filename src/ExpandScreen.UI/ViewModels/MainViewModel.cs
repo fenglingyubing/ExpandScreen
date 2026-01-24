@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
 using ExpandScreen.Services.Configuration;
+using ExpandScreen.Services.Connection;
 using ExpandScreen.UI.Services;
 using ExpandScreen.UI.Views;
 
@@ -16,21 +17,57 @@ namespace ExpandScreen.UI.ViewModels
         private DeviceViewModel? _selectedDevice;
         private string _statusText = "就绪";
 
+        private readonly DeviceDiscoveryService _deviceDiscoveryService;
+        private readonly ConnectionManager _connectionManager;
+
         public MainViewModel()
         {
             // Initialize commands
-            ConnectCommand = new RelayCommand(ExecuteConnect, CanExecuteConnect);
-            DisconnectCommand = new RelayCommand(ExecuteDisconnect, CanExecuteDisconnect);
+            ConnectDeviceCommand = new RelayCommand(ExecuteConnectDevice, CanExecuteConnectDevice);
+            DisconnectDeviceCommand = new RelayCommand(ExecuteDisconnectDevice, CanExecuteDisconnectDevice);
             RefreshDevicesCommand = new RelayCommand(ExecuteRefreshDevices);
             OpenSettingsCommand = new RelayCommand(ExecuteOpenSettings);
             ToggleThemeCommand = new RelayCommand(ExecuteToggleTheme);
 
-            // Initialize with sample devices for demo
-            InitializeSampleDevices();
-
             if (Application.Current is App app)
             {
                 IsDarkTheme = app.ConfigService.GetSnapshot().General.Theme == ThemeMode.Dark;
+            }
+
+            _deviceDiscoveryService = new DeviceDiscoveryService();
+            _deviceDiscoveryService.DeviceConnected += (_, device) => UpsertDevice(device);
+            _deviceDiscoveryService.DeviceUpdated += (_, device) => UpsertDevice(device);
+            _deviceDiscoveryService.DeviceDisconnected += (_, device) => RemoveDevice(device.DeviceId);
+            _deviceDiscoveryService.Start();
+
+            _connectionManager = new ConnectionManager(CreateConnectionOptionsFromConfig());
+            _connectionManager.SessionUpdated += (_, session) => ApplySessionSnapshot(session);
+
+            _ = Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                await _deviceDiscoveryService.TriggerScanAsync();
+            });
+
+            if (Application.Current != null)
+            {
+                Application.Current.Exit += (_, _) =>
+                {
+                    try
+                    {
+                        _deviceDiscoveryService.Dispose();
+                    }
+                    catch
+                    {
+                    }
+
+                    try
+                    {
+                        _connectionManager.Dispose();
+                    }
+                    catch
+                    {
+                    }
+                };
             }
         }
 
@@ -43,10 +80,26 @@ namespace ExpandScreen.UI.ViewModels
             get => _selectedDevice;
             set
             {
+                if (ReferenceEquals(_selectedDevice, value))
+                {
+                    return;
+                }
+
+                var previous = _selectedDevice;
                 if (SetProperty(ref _selectedDevice, value))
                 {
-                    ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
-                    ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+                    if (previous != null)
+                    {
+                        previous.IsSelected = false;
+                    }
+
+                    if (value != null)
+                    {
+                        value.IsSelected = true;
+                    }
+
+                    ((RelayCommand)ConnectDeviceCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)DisconnectDeviceCommand).RaiseCanExecuteChanged();
                 }
             }
         }
@@ -67,8 +120,8 @@ namespace ExpandScreen.UI.ViewModels
 
         #region Commands
 
-        public ICommand ConnectCommand { get; }
-        public ICommand DisconnectCommand { get; }
+        public ICommand ConnectDeviceCommand { get; }
+        public ICommand DisconnectDeviceCommand { get; }
         public ICommand RefreshDevicesCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand ToggleThemeCommand { get; }
@@ -77,63 +130,88 @@ namespace ExpandScreen.UI.ViewModels
 
         #region Command Implementations
 
-        private bool CanExecuteConnect(object? parameter)
+        private bool CanExecuteConnectDevice(object? parameter)
         {
-            return SelectedDevice != null && SelectedDevice.Status == DeviceStatus.Disconnected;
+            var device = parameter as DeviceViewModel ?? SelectedDevice;
+            if (device == null)
+            {
+                return false;
+            }
+
+            return device.Status == DeviceStatus.Disconnected || device.Status == DeviceStatus.Error;
         }
 
-        private async void ExecuteConnect(object? parameter)
+        private async void ExecuteConnectDevice(object? parameter)
         {
-            if (SelectedDevice == null) return;
+            var device = parameter as DeviceViewModel ?? SelectedDevice;
+            if (device == null)
+            {
+                return;
+            }
 
-            StatusText = $"正在连接到 {SelectedDevice.DeviceName}...";
-            SelectedDevice.Status = DeviceStatus.Connecting;
+            device.LastError = null;
+            device.Status = DeviceStatus.Connecting;
+            StatusText = $"正在连接到 {device.DeviceName}...";
 
-            // Simulate connection (replace with actual connection logic)
-            await Task.Delay(2000);
+            var result = await _connectionManager.ConnectAsync(device.DeviceId);
 
-            SelectedDevice.Status = DeviceStatus.Connected;
-            StatusText = $"已连接到 {SelectedDevice.DeviceName}";
+            if (!result.Success)
+            {
+                device.Status = DeviceStatus.Error;
+                device.LastError = result.ErrorMessage;
+                StatusText = $"连接失败：{device.DeviceName}";
+                return;
+            }
 
-            ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
-            ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+            device.Status = DeviceStatus.Connected;
+            if (result.Session != null)
+            {
+                device.SessionProfile = result.Session.VideoProfile.Summary;
+                device.MonitorId = result.Session.MonitorId;
+            }
+
+            StatusText = $"已连接到 {device.DeviceName}";
         }
 
-        private bool CanExecuteDisconnect(object? parameter)
+        private bool CanExecuteDisconnectDevice(object? parameter)
         {
-            return SelectedDevice != null && SelectedDevice.Status == DeviceStatus.Connected;
+            var device = parameter as DeviceViewModel ?? SelectedDevice;
+            if (device == null)
+            {
+                return false;
+            }
+
+            return device.Status == DeviceStatus.Connected;
         }
 
-        private async void ExecuteDisconnect(object? parameter)
+        private async void ExecuteDisconnectDevice(object? parameter)
         {
-            if (SelectedDevice == null) return;
+            var device = parameter as DeviceViewModel ?? SelectedDevice;
+            if (device == null)
+            {
+                return;
+            }
 
-            StatusText = $"正在断开 {SelectedDevice.DeviceName}...";
+            StatusText = $"正在断开 {device.DeviceName}...";
 
-            // Simulate disconnection (replace with actual disconnection logic)
-            await Task.Delay(1000);
+            _ = await _connectionManager.DisconnectAsync(device.DeviceId);
 
-            SelectedDevice.Status = DeviceStatus.Disconnected;
+            device.Status = DeviceStatus.Disconnected;
+            device.MonitorId = null;
+            device.SessionProfile = string.Empty;
+            device.LastError = null;
             StatusText = "就绪";
 
-            ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
-            ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)ConnectDeviceCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)DisconnectDeviceCommand).RaiseCanExecuteChanged();
         }
 
         private async void ExecuteRefreshDevices()
         {
             StatusText = "正在扫描设备...";
 
-            // Simulate device scan (replace with actual device discovery logic)
-            await Task.Delay(1500);
-
-            // For now, just refresh the sample devices
-            InitializeSampleDevices();
-
+            await _deviceDiscoveryService.TriggerScanAsync();
             StatusText = $"找到 {Devices.Count} 个设备";
-
-            await Task.Delay(2000);
-            StatusText = "就绪";
         }
 
         private void ExecuteOpenSettings()
@@ -165,22 +243,123 @@ namespace ExpandScreen.UI.ViewModels
 
         #region Helper Methods
 
-        private void InitializeSampleDevices()
+        private static ConnectionManagerOptions CreateConnectionOptionsFromConfig()
         {
-            Devices.Clear();
-            Devices.Add(new DeviceViewModel
+            if (Application.Current is not App app)
             {
-                DeviceId = "device_001",
-                DeviceName = "Samsung Galaxy Tab S8",
-                IpAddress = "192.168.1.100",
-                Status = DeviceStatus.Disconnected
+                return new ConnectionManagerOptions();
+            }
+
+            var config = app.ConfigService.GetSnapshot();
+            var primary = new SessionVideoProfile(
+                config.Video.Width,
+                config.Video.Height,
+                config.Video.FrameRate,
+                config.Video.BitrateBps);
+
+            var degraded = new SessionVideoProfile(
+                1280,
+                720,
+                60,
+                Math.Min(config.Video.BitrateBps, 3_000_000));
+
+            return new ConnectionManagerOptions
+            {
+                RemotePort = 15555,
+                DefaultMaxSessions = 4,
+                MaxHighQualitySessions = 1,
+                PrimaryProfile = primary,
+                DegradedProfile = degraded,
+                EnableVirtualDisplays = true
+            };
+        }
+
+        private void UpsertDevice(AndroidDevice device)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var existing = Devices.FirstOrDefault(d => d.DeviceId == device.DeviceId);
+                if (existing == null)
+                {
+                    existing = new DeviceViewModel
+                    {
+                        DeviceId = device.DeviceId,
+                        DeviceName = string.IsNullOrWhiteSpace(device.DeviceName) ? device.DeviceId : device.DeviceName,
+                        Manufacturer = device.Manufacturer,
+                        Model = device.Model,
+                        AdbStatus = device.Status,
+                        Transport = "USB"
+                    };
+                    Devices.Add(existing);
+                }
+                else
+                {
+                    existing.DeviceName = string.IsNullOrWhiteSpace(device.DeviceName) ? existing.DeviceName : device.DeviceName;
+                    existing.Manufacturer = device.Manufacturer;
+                    existing.Model = device.Model;
+                    existing.AdbStatus = device.Status;
+                }
+
+                if (SelectedDevice == null)
+                {
+                    SelectedDevice = existing;
+                }
+
+                ((RelayCommand)ConnectDeviceCommand).RaiseCanExecuteChanged();
+                ((RelayCommand)DisconnectDeviceCommand).RaiseCanExecuteChanged();
             });
-            Devices.Add(new DeviceViewModel
+        }
+
+        private void RemoveDevice(string deviceId)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
             {
-                DeviceId = "device_002",
-                DeviceName = "Xiaomi Pad 5",
-                IpAddress = "192.168.1.101",
-                Status = DeviceStatus.Disconnected
+                var existing = Devices.FirstOrDefault(d => d.DeviceId == deviceId);
+                if (existing == null)
+                {
+                    return;
+                }
+
+                if (SelectedDevice == existing)
+                {
+                    SelectedDevice = null;
+                }
+
+                Devices.Remove(existing);
+            });
+        }
+
+        private void ApplySessionSnapshot(DeviceSessionSnapshot session)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var device = Devices.FirstOrDefault(d => d.DeviceId == session.DeviceId);
+                if (device == null)
+                {
+                    return;
+                }
+
+                if (session.State == DeviceSessionState.Disconnected)
+                {
+                    device.Status = DeviceStatus.Disconnected;
+                    device.SessionProfile = string.Empty;
+                    device.MonitorId = null;
+                    device.LastError = null;
+                    return;
+                }
+
+                device.SessionProfile = session.VideoProfile.Summary;
+                device.MonitorId = session.MonitorId;
+
+                device.Status = session.State switch
+                {
+                    DeviceSessionState.Connecting => DeviceStatus.Connecting,
+                    DeviceSessionState.Connected => DeviceStatus.Connected,
+                    DeviceSessionState.Error => DeviceStatus.Error,
+                    _ => device.Status
+                };
+
+                device.LastError = session.LastError;
             });
         }
 

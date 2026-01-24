@@ -22,6 +22,7 @@
         <conv:StatusToColorConverter x:Key="StatusToColorConverter"/>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:StatusToAnimationConverter x:Key="StatusToAnimationConverter"/>
+        <conv:DeviceStatusToVisibilityConverter x:Key="DeviceStatusToVisibilityConverter"/>
 
         <!-- Device Card Style with Glow Effect -->
         <Style x:Key="DeviceCardStyle" TargetType="Border">
@@ -33,6 +34,18 @@
             <Setter Property="Margin" Value="0,0,0,12"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect Color="{DynamicResource PrimaryColor}"
+                                            BlurRadius="18"
+                                            ShadowDepth="0"
+                                            Opacity="0.22"/>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
                     <Setter Property="Effect">
@@ -216,12 +229,12 @@
                                                     <Run Text="{Binding DeviceId}"/>
                                                 </TextBlock>
 
-                                                <TextBlock FontFamily="{DynamicResource MonoFont}"
+                                                <TextBlock Text="{Binding SummaryLine}"
+                                                          FontFamily="{DynamicResource UIFont}"
                                                           FontSize="12"
-                                                          Foreground="{DynamicResource TextSecondaryBrush}">
-                                                    <Run Text="IP:"/>
-                                                    <Run Text="{Binding IpAddress}"/>
-                                                </TextBlock>
+                                                          Foreground="{DynamicResource TextSecondaryBrush}"
+                                                          Margin="0,8,0,0"
+                                                          TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
 
                                             <!-- Status Indicator -->
@@ -258,6 +271,27 @@
                                                           FontSize="12"
                                                           Foreground="{Binding Status, Converter={StaticResource StatusToColorConverter}}"
                                                           HorizontalAlignment="Center"/>
+
+                                                <StackPanel Orientation="Horizontal"
+                                                           HorizontalAlignment="Center"
+                                                           Margin="0,10,0,0">
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                           Command="{Binding DataContext.ConnectDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           CommandParameter="{Binding}"
+                                                           Content="连接"
+                                                           FontSize="12"
+                                                           Padding="12,4"
+                                                           Margin="0,0,8,0"
+                                                           Visibility="{Binding Status, Converter={StaticResource DeviceStatusToVisibilityConverter}, ConverterParameter=connect}"/>
+
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                           Command="{Binding DataContext.DisconnectDeviceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           CommandParameter="{Binding}"
+                                                           Content="断开"
+                                                           FontSize="12"
+                                                           Padding="12,4"
+                                                           Visibility="{Binding Status, Converter={StaticResource DeviceStatusToVisibilityConverter}, ConverterParameter=disconnect}"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -307,11 +341,12 @@
                                               FontWeight="Medium"
                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
 
-                                    <TextBlock Text="{Binding SelectedDevice.IpAddress}"
-                                              FontFamily="{DynamicResource MonoFont}"
+                                    <TextBlock Text="{Binding SelectedDevice.SummaryLine}"
+                                              FontFamily="{DynamicResource UIFont}"
                                               FontSize="12"
                                               Foreground="{DynamicResource TextSecondaryBrush}"
-                                              Margin="0,4,0,0"/>
+                                              Margin="0,6,0,0"
+                                              TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -322,13 +357,15 @@
                         <!-- Action Buttons -->
                         <StackPanel Grid.Row="2">
                             <Button Style="{DynamicResource PrimaryButtonStyle}"
-                                   Command="{Binding ConnectCommand}"
-                                    Content="连接设备"
+                                   Command="{Binding ConnectDeviceCommand}"
+                                   CommandParameter="{Binding SelectedDevice}"
+                                   Content="连接设备"
                                    Margin="0,0,0,12"
                                    HorizontalAlignment="Stretch"/>
 
                             <Button Style="{DynamicResource SecondaryButtonStyle}"
-                                   Command="{Binding DisconnectCommand}"
+                                   Command="{Binding DisconnectDeviceCommand}"
+                                   CommandParameter="{Binding SelectedDevice}"
                                    Content="断开连接"
                                    HorizontalAlignment="Stretch"/>
                         </StackPanel>

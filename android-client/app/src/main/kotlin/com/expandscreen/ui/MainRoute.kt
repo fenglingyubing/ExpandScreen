@@ -38,6 +38,8 @@ fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
         onDeviceIdChange = viewModel::setAndroidDeviceId,
         onDeviceNameChange = viewModel::setAndroidDeviceName,
         onConnectWifi = viewModel::connectWifi,
+        onDiscoverWifi = viewModel::discoverWifiServers,
+        onConnectDiscovered = viewModel::connectDiscovered,
         onConnectUsb = viewModel::waitUsb,
         onDisconnect = viewModel::disconnect,
         onConnectHistory = viewModel::connectHistory,
@@ -49,4 +51,3 @@ fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
         onCancelWaiting = viewModel::disconnect,
     )
 }
-

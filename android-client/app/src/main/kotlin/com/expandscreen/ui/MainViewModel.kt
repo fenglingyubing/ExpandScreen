@@ -5,6 +5,8 @@ import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expandscreen.core.network.NetworkManager
+import com.expandscreen.core.network.WifiDiscoveryClient
+import com.expandscreen.core.network.DiscoveredWindowsServer
 import com.expandscreen.data.model.WindowsDeviceEntity
 import com.expandscreen.data.repository.DeviceRepository
 import com.expandscreen.protocol.HandshakeMessage
@@ -22,6 +24,7 @@ import kotlinx.coroutines.launch
 class MainViewModel @Inject constructor(
     @ApplicationContext private val appContext: android.content.Context,
     private val networkManager: NetworkManager,
+    private val wifiDiscoveryClient: WifiDiscoveryClient,
     private val deviceRepository: DeviceRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
@@ -83,6 +86,44 @@ class MainViewModel @Inject constructor(
         networkManager.disconnect()
     }
 
+    fun discoverWifiServers() {
+        val isBusy = _uiState.value.connectionState != com.expandscreen.core.network.ConnectionState.Disconnected
+        if (isBusy) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWifiDiscovering = true, discoveredWifiServers = emptyList(), lastError = null) }
+
+            val result =
+                wifiDiscoveryClient.discoverServers(
+                    clientDeviceId = _uiState.value.androidDeviceId.takeIf { it.isNotBlank() },
+                    clientDeviceName = _uiState.value.androidDeviceName.takeIf { it.isNotBlank() },
+                )
+
+            result.onSuccess { servers ->
+                _uiState.update { current ->
+                    val nextHost =
+                        if (current.host == "192.168.1.100" && servers.isNotEmpty()) servers.first().host else current.host
+                    val nextPort =
+                        if (current.port == "15555" && servers.isNotEmpty()) servers.first().tcpPort.toString() else current.port
+
+                    current.copy(
+                        isWifiDiscovering = false,
+                        discoveredWifiServers = servers,
+                        host = nextHost,
+                        port = nextPort,
+                    )
+                }
+
+                if (servers.isEmpty()) {
+                    _events.emit(MainUiEvent.ShowSnackbar("未发现可用的 Windows 端（确认同一 WiFi 且 Windows 已开启 WiFi 服务）"))
+                }
+            }.onFailure { err ->
+                _uiState.update { it.copy(isWifiDiscovering = false, lastError = err.message ?: err.toString()) }
+                _events.emit(MainUiEvent.ShowSnackbar("设备发现失败：${err.message ?: err.javaClass.simpleName}"))
+            }
+        }
+    }
+
     fun connectWifi() {
         val host = _uiState.value.host.trim()
         val port = _uiState.value.port.toIntOrNull()
@@ -95,6 +136,19 @@ class MainViewModel @Inject constructor(
             return
         }
 
+        connectWifiInternal(host = host, port = port, deviceNameForHistory = "Windows @ $host")
+    }
+
+    fun connectDiscovered(server: DiscoveredWindowsServer) {
+        _uiState.update { it.copy(host = server.host, port = server.tcpPort.toString()) }
+        connectWifiInternal(
+            host = server.host,
+            port = server.tcpPort,
+            deviceNameForHistory = server.serverName.ifBlank { "Windows @ ${server.host}" },
+        )
+    }
+
+    private fun connectWifiInternal(host: String, port: Int, deviceNameForHistory: String) {
         val handshake =
             HandshakeMessage(
                 deviceId = _uiState.value.androidDeviceId,
@@ -114,7 +168,7 @@ class MainViewModel @Inject constructor(
                 )
             result.onSuccess {
                 deviceRepository.upsertConnectedDevice(
-                    deviceName = "Windows @ $host",
+                    deviceName = deviceNameForHistory,
                     ipAddress = host,
                     connectionType = "WiFi",
                 )

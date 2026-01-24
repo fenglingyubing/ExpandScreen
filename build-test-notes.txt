@@ -326,6 +326,31 @@
 
 ---
 
+任务3.2.1构建要求:
+- JDK 17+（Gradle 8.x 需要较新JDK；本地默认 JDK8 会导致 Gradle 8.2 无法启动）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+- .NET 8.0 SDK（用于 Windows 端协议/集成测试的跨平台部分）
+
+构建/测试状态:
+✅ AND-101（Android WiFi 连接/发现）相关代码已完成
+✅ Android 单元测试通过
+✅ .NET 构建与测试通过
+
+关键命令与输出（本地Windows）:
+1. Android（单元测试）:
+  - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat test --no-daemon; popd`
+  - 结果：BUILD SUCCESSFUL（62 actionable tasks, 1m 38s）
+2. .NET（解决方案测试）:
+  - `dotnet test ExpandScreen.sln -c Release`
+  - 结果：Passed 21, Skipped 9, Failed 0
+
+说明:
+- Android 编译期提示 `DhcpInfo` 等 API deprecated（不影响构建/测试通过）。
+- Skip 的用例多为依赖 FFmpeg native/设备环境的测试（不影响本任务提交）。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

@@ -68,6 +68,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.expandscreen.core.network.ConnectionState
+import com.expandscreen.core.network.DiscoveredWindowsServer
 import com.expandscreen.data.model.WindowsDeviceEntity
 import com.expandscreen.ui.theme.ExpandScreenTheme
 
@@ -81,6 +82,8 @@ fun MainScreen(
     onDeviceIdChange: (String) -> Unit,
     onDeviceNameChange: (String) -> Unit,
     onConnectWifi: () -> Unit,
+    onDiscoverWifi: () -> Unit,
+    onConnectDiscovered: (DiscoveredWindowsServer) -> Unit,
     onConnectUsb: () -> Unit,
     onDisconnect: () -> Unit,
     onConnectHistory: (WindowsDeviceEntity) -> Unit,
@@ -179,6 +182,16 @@ fun MainScreen(
                     onConnectUsb = onConnectUsb,
                     onDisconnect = onDisconnect,
                     onRequestQrScan = onRequestQrScan,
+                )
+            }
+
+            item {
+                WifiDiscoveryCard(
+                    discovered = state.discoveredWifiServers,
+                    isDiscovering = state.isWifiDiscovering,
+                    connectionState = state.connectionState,
+                    onDiscover = onDiscoverWifi,
+                    onConnect = onConnectDiscovered,
                 )
             }
 
@@ -408,6 +421,177 @@ private fun QuickConnectCard(
                     Text("Disconnect")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WifiDiscoveryCard(
+    discovered: List<DiscoveredWindowsServer>,
+    isDiscovering: Boolean,
+    connectionState: ConnectionState,
+    onDiscover: () -> Unit,
+    onConnect: (DiscoveredWindowsServer) -> Unit,
+) {
+    val isBusy = connectionState != ConnectionState.Disconnected
+    val shimmer by
+        rememberInfiniteTransition(label = "discovery-shimmer")
+            .animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(animation = tween(1_200), repeatMode = RepeatMode.Restart),
+                label = "discovery-shimmer-f",
+            )
+
+    Card(
+        colors =
+            CardDefaults.cardColors(
+                containerColor = Color(0xFF0B1118).copy(alpha = 0.92f),
+                contentColor = Color(0xFFE9F2FF),
+            ),
+        shape = MaterialTheme.shapes.extraLarge,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "WiFi Discovery",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "Broadcast + reply • UDP",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFFB8C7D9),
+                    )
+                }
+
+                TextButton(onClick = onDiscover, enabled = !isBusy && !isDiscovering) {
+                    if (isDiscovering) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFF7CFAC6),
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Scanning…")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Wifi,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Scan LAN")
+                    }
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFF14323D).copy(alpha = 0.4f))
+
+            val hintColor =
+                if (isDiscovering) {
+                    Color(0xFF7CFAC6).copy(alpha = 0.65f + shimmer * 0.25f)
+                } else {
+                    Color(0xFFB8C7D9)
+                }
+
+            if (discovered.isEmpty()) {
+                Text(
+                    text =
+                        if (isDiscovering) {
+                            "Listening for Windows discovery responses…"
+                        } else {
+                            "Tap “Scan LAN” to find Windows hosts on the same WiFi."
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = hintColor,
+                )
+                return@Column
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                discovered.take(8).forEach { server ->
+                    DiscoveredServerRow(
+                        server = server,
+                        enabled = !isBusy,
+                        onConnect = { onConnect(server) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoveredServerRow(
+    server: DiscoveredWindowsServer,
+    enabled: Boolean,
+    onConnect: () -> Unit,
+) {
+    val borderBrush =
+        Brush.linearGradient(
+            0.0f to Color(0xFF1D3E3E).copy(alpha = 0.55f),
+            1.0f to Color(0xFF12252D).copy(alpha = 0.55f),
+        )
+
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(Color(0xFF0D141B).copy(alpha = 0.96f))
+                .drawBehind {
+                    val stroke = 1.dp.toPx()
+                    val dash = floatArrayOf(6.dp.toPx(), 8.dp.toPx())
+                    val effect = PathEffect.dashPathEffect(dash, 0f)
+                    drawRect(
+                        brush = borderBrush,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, pathEffect = effect),
+                    )
+                }
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onConnect,
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = server.serverName.ifBlank { "Windows Host" },
+                style = MaterialTheme.typography.titleSmall,
+                color = Color(0xFFE9F2FF),
+            )
+            Text(
+                text = "${server.host}:${server.tcpPort} • v${server.serverVersion}",
+                style = MaterialTheme.typography.labelMedium,
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFFB8C7D9),
+            )
+        }
+
+        Button(
+            onClick = onConnect,
+            enabled = enabled,
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF133B3A),
+                    contentColor = Color(0xFFDCFFF1),
+                ),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Text("Connect")
         }
     }
 }
@@ -736,10 +920,10 @@ private fun formatEpochMs(epochMs: Long): String {
 @Composable
 private fun MainScreenPreview() {
     ExpandScreenTheme {
-        MainScreen(
-            state =
-                MainUiState(
-                    connectionState = ConnectionState.Disconnected,
+            MainScreen(
+                state =
+                    MainUiState(
+                        connectionState = ConnectionState.Disconnected,
                     devices =
                         listOf(
                             WindowsDeviceEntity(
@@ -765,17 +949,19 @@ private fun MainScreenPreview() {
                     androidDeviceName = "Android Preview",
                     lastError = "Example error message",
                 ),
-            snackbarHost = {},
-            onHostChange = {},
-            onPortChange = {},
-            onDeviceIdChange = {},
-            onDeviceNameChange = {},
-            onConnectWifi = {},
-            onConnectUsb = {},
-            onDisconnect = {},
-            onConnectHistory = {},
-            onToggleFavorite = {},
-            onDeleteDevice = {},
+                snackbarHost = {},
+                onHostChange = {},
+                onPortChange = {},
+                onDeviceIdChange = {},
+                onDeviceNameChange = {},
+                onConnectWifi = {},
+                onDiscoverWifi = {},
+                onConnectDiscovered = {},
+                onConnectUsb = {},
+                onDisconnect = {},
+                onConnectHistory = {},
+                onToggleFavorite = {},
+                onDeleteDevice = {},
             onRequestQrScan = {},
             onOpenSettings = {},
             onCloseSettings = {},

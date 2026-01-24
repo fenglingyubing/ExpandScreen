@@ -152,7 +152,7 @@ The app follows Material Design 3 principles with:
 
 2. **WiFi Connection**:
    - Ensure both devices are on same network
-   - Windows PC broadcasts discovery message
+   - Android app broadcasts discovery request (UDP)
    - Android app displays available PCs
    - Select PC to connect
 

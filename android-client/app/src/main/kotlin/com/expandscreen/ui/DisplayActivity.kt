@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,12 +32,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -48,13 +51,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expandscreen.core.input.TouchProcessor
 import com.expandscreen.core.network.ConnectionState
+import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.renderer.GLRenderer
 import com.expandscreen.service.DisplayService
 import com.expandscreen.ui.theme.ExpandScreenTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
@@ -69,6 +76,8 @@ import timber.log.Timber
  */
 @AndroidEntryPoint
 class DisplayActivity : ComponentActivity() {
+
+    @Inject lateinit var networkManager: NetworkManager
 
     private val uiState = MutableStateFlow(DisplayUiState())
 
@@ -87,6 +96,20 @@ class DisplayActivity : ComponentActivity() {
         )
 
     private var collectJob: Job? = null
+
+    private val touchBatches = Channel<List<com.expandscreen.protocol.TouchEventMessage>>(capacity = 128)
+    private var touchSendJob: Job? = null
+
+    private val touchProcessor: TouchProcessor by lazy {
+        TouchProcessor(
+            screenWidthPxProvider = { getLandscapePixels().first },
+            screenHeightPxProvider = { getLandscapePixels().second },
+            viewWidthPxProvider = { glSurfaceView?.width ?: getLandscapePixels().first },
+            viewHeightPxProvider = { glSurfaceView?.height ?: getLandscapePixels().second },
+            videoWidthPxProvider = { uiState.value.videoWidth },
+            videoHeightPxProvider = { uiState.value.videoHeight },
+        )
+    }
 
     private val serviceConnection =
         object : ServiceConnection {
@@ -136,6 +159,7 @@ class DisplayActivity : ComponentActivity() {
                         },
                         onToggleMenu = { uiState.update { it.copy(showMenu = !it.showMenu) } },
                         onHideMenu = { uiState.update { it.copy(showMenu = false) } },
+                        onMotionEvent = { motionEvent -> handleMotionEvent(motionEvent) },
                         glSurfaceViewProvider = { surfaceView ->
                             glSurfaceView = surfaceView
                             renderer.bindTo(surfaceView)
@@ -146,6 +170,14 @@ class DisplayActivity : ComponentActivity() {
         }
 
         uiState.update { it.copy(allowRotation = allowRotation) }
+
+        touchSendJob?.cancel()
+        touchSendJob =
+            lifecycleScope.launch(Dispatchers.Default) {
+                for (batch in touchBatches) {
+                    networkManager.sendTouchEvents(batch)
+                }
+            }
     }
 
     private fun setupFullScreen() {
@@ -197,6 +229,8 @@ class DisplayActivity : ComponentActivity() {
                                         fps = snapshot.fps,
                                         latencyMs = snapshot.latencyMs,
                                         connectionState = snapshot.connectionState,
+                                        videoWidth = snapshot.videoWidth,
+                                        videoHeight = snapshot.videoHeight,
                                         memoryPssMb = snapshot.memoryPssMb,
                                         cpuUsagePercent = snapshot.cpuUsagePercent,
                                         decoderQueuedFrames = snapshot.decoderQueuedFrames,
@@ -241,6 +275,9 @@ class DisplayActivity : ComponentActivity() {
         collectJob = null
 
         renderer.release()
+        runCatching { touchBatches.close() }
+        touchSendJob?.cancel()
+        touchSendJob = null
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -253,11 +290,33 @@ class DisplayActivity : ComponentActivity() {
     private companion object {
         const val EXTRA_ALLOW_ROTATION = "com.expandscreen.extra.ALLOW_ROTATION"
     }
+
+    private fun getLandscapePixels(): Pair<Int, Int> {
+        val metrics = resources.displayMetrics
+        val w = metrics.widthPixels.coerceAtLeast(1)
+        val h = metrics.heightPixels.coerceAtLeast(1)
+        return if (w >= h) w to h else h to w
+    }
+
+    private fun handleMotionEvent(event: MotionEvent) {
+        if (uiState.value.showMenu) return
+
+        val messages = touchProcessor.process(event)
+        if (messages.isEmpty()) return
+
+        val isMoveOnly = messages.all { it.action == 1 }
+        val ok = touchBatches.trySend(messages).isSuccess
+        if (!ok && !isMoveOnly) {
+            lifecycleScope.launch { touchBatches.send(messages) }
+        }
+    }
 }
 
 private data class DisplayUiState(
     val fps: Int = 0,
     val latencyMs: Int = 0,
+    val videoWidth: Int = 0,
+    val videoHeight: Int = 0,
     val memoryPssMb: Int = 0,
     val cpuUsagePercent: Int = 0,
     val decoderQueuedFrames: Int = 0,
@@ -272,6 +331,7 @@ private data class DisplayUiState(
 )
 
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 private fun DisplayScreen(
     uiState: MutableStateFlow<DisplayUiState>,
     onExit: () -> Unit,
@@ -279,6 +339,7 @@ private fun DisplayScreen(
     onToggleRotationLock: () -> Unit,
     onToggleMenu: () -> Unit,
     onHideMenu: () -> Unit,
+    onMotionEvent: (MotionEvent) -> Unit,
     glSurfaceViewProvider: (GLSurfaceView) -> Unit,
 ) {
     val state by uiState.collectAsStateWithLifecycle()
@@ -289,20 +350,23 @@ private fun DisplayScreen(
             1.0f to Color(0xCC0E1A16),
         )
 
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = { onToggleMenu() },
-                        onTap = { if (state.showMenu) onHideMenu() },
-                    )
-                },
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = { onToggleMenu() },
+                            onTap = { if (state.showMenu) onHideMenu() },
+                        )
+                    }
+                    .pointerInteropFilter { motionEvent ->
+                        if (!state.showMenu) {
+                            onMotionEvent(motionEvent)
+                        }
+                        false
+                    },
             factory = {
                 GLSurfaceView(it).also { view -> glSurfaceViewProvider(view) }
             },

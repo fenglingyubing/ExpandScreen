@@ -118,6 +118,27 @@
 - Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
 - Gradle Wrapper（`android-client/gradlew`）
 
+---
+
+任务3.2.5构建要求:
+- JDK 17+（本地默认 `JAVA_HOME=JDK8` 会导致 Gradle Daemon 启动失败）
+- Android SDK (API 34)（用于完整 Android 构建/运行；单元测试使用 Robolectric）
+- .NET 8.0 SDK
+
+关键命令与输出（本地 Windows）:
+1) .NET（跨平台部分）:
+   - `dotnet test ExpandScreen.sln -c Release`
+   - 结果：已通过 (Passed 21, Skipped 9, Failed 0)
+
+2) Android（单元测试）:
+   - `cd android-client`
+   - 使用 JDK 21（等价于 JDK 17+）运行 Gradle:
+     - `$env:JAVA_HOME='F:\Java\jdk-21'; $env:ORG_GRADLE_JAVA_HOME=$env:JAVA_HOME; $env:PATH="$env:JAVA_HOME\bin;$env:PATH"; .\gradlew.bat --no-daemon :app:testDebugUnitTest`
+   - 结果：BUILD SUCCESSFUL
+
+说明:
+- 若直接运行 `.\gradlew.bat :app:testDebugUnitTest`，会因 JDK8 触发 `ClassNotFoundException: org.gradle.instrumentation.agent.Agent` 导致构建失败。
+
 构建/测试状态:
 ✅ Android OpenGL渲染模块（AND-004）构建与单元测试通过
 

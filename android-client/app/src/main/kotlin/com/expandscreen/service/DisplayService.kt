@@ -23,6 +23,7 @@ import com.expandscreen.core.network.IncomingMessage
 import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.performance.PerformanceMode
 import dagger.hilt.android.AndroidEntryPoint
+import com.expandscreen.data.repository.ConnectionLogRepository
 import com.expandscreen.data.repository.PerformancePreset
 import com.expandscreen.data.repository.SettingsRepository
 import javax.inject.Inject
@@ -55,21 +56,40 @@ class DisplayService : Service() {
 
     @Inject lateinit var networkManager: NetworkManager
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var connectionLogRepository: ConnectionLogRepository
 
     private val binder = DisplayServiceBinder()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val processingMutex = Mutex()
+    private val cleanupMutex = Mutex()
+
+    @Volatile
+    private var cleanedUp: Boolean = false
 
     companion object {
         const val ACTION_START = "com.expandscreen.action.DISPLAY_START"
         const val ACTION_STOP = "com.expandscreen.action.DISPLAY_STOP"
         const val ACTION_DISCONNECT_AND_STOP = "com.expandscreen.action.DISPLAY_DISCONNECT_AND_STOP"
 
+        private const val EXTRA_DEVICE_ID = "com.expandscreen.extra.DEVICE_ID"
+        private const val EXTRA_CONNECTION_TYPE = "com.expandscreen.extra.CONNECTION_TYPE"
+
         private const val NOTIFICATION_CHANNEL_ID = "expandscreen_display"
         private const val NOTIFICATION_ID = 1001
 
         fun startIntent(context: Context): Intent {
             return Intent(context, DisplayService::class.java).setAction(ACTION_START)
+        }
+
+        fun startIntent(
+            context: Context,
+            deviceId: Long,
+            connectionType: String,
+        ): Intent {
+            return Intent(context, DisplayService::class.java)
+                .setAction(ACTION_START)
+                .putExtra(EXTRA_DEVICE_ID, deviceId)
+                .putExtra(EXTRA_CONNECTION_TYPE, connectionType)
         }
 
         fun disconnectAndStopIntent(context: Context): Intent {
@@ -93,6 +113,7 @@ class DisplayService : Service() {
     private var notificationJob: Job? = null
     private var metricsJob: Job? = null
     private var settingsJob: Job? = null
+    private var connectionLogJob: Job? = null
 
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -101,6 +122,27 @@ class DisplayService : Service() {
 
     private val _state = MutableStateFlow(DisplayServiceState())
     val state: StateFlow<DisplayServiceState> = _state.asStateFlow()
+
+    @Volatile
+    private var logDeviceId: Long? = null
+
+    @Volatile
+    private var logConnectionType: String? = null
+
+    @Volatile
+    private var activeLogId: Long? = null
+
+    @Volatile
+    private var activeLogStartTimeMs: Long? = null
+
+    @Volatile
+    private var samples: Long = 0
+
+    @Volatile
+    private var fpsSum: Long = 0
+
+    @Volatile
+    private var latencySum: Long = 0
 
     inner class DisplayServiceBinder : Binder() {
         fun getService(): DisplayService = this@DisplayService
@@ -118,7 +160,7 @@ class DisplayService : Service() {
         }
 
         fun stopAndCleanup() {
-            this@DisplayService.stopAndCleanup(reason = "binder-stop")
+            this@DisplayService.stopAndCleanupAsync(reason = "binder-stop")
         }
     }
 
@@ -133,15 +175,17 @@ class DisplayService : Service() {
         val action = intent?.action
         Timber.d("DisplayService onStartCommand action=$action")
 
+        extractLogContext(intent)
+
         when (action) {
             ACTION_STOP -> {
-                stopAndCleanup(reason = "intent-stop")
+                stopAndCleanupAsync(reason = "intent-stop")
                 return START_NOT_STICKY
             }
 
             ACTION_DISCONNECT_AND_STOP -> {
                 disconnect()
-                stopAndCleanup(reason = "intent-disconnect-and-stop")
+                stopAndCleanupAsync(reason = "intent-disconnect-and-stop")
                 return START_NOT_STICKY
             }
 
@@ -166,7 +210,7 @@ class DisplayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("DisplayService destroyed")
-        stopAndCleanup(reason = "onDestroy")
+        stopAndCleanupAsync(reason = "onDestroy")
     }
 
     private fun startSettingsCollector() {
@@ -266,6 +310,7 @@ class DisplayService : Service() {
         connectionJob =
             serviceScope.launch(Dispatchers.Default) {
                 var everConnected = false
+                var previousState: ConnectionState = ConnectionState.Disconnected
                 networkManager.connectionState.collect { connectionState ->
                     _state.value =
                         _state.value.copy(
@@ -273,13 +318,92 @@ class DisplayService : Service() {
                             lastError = if (connectionState is ConnectionState.Connected) null else _state.value.lastError,
                         )
                     if (connectionState is ConnectionState.Connected) {
+                        if (previousState !is ConnectionState.Connected) {
+                            startActiveLogIfPossible()
+                        }
                         everConnected = true
                     }
                     if (connectionState == ConnectionState.Disconnected && everConnected) {
-                        stopAndCleanup(reason = "disconnected")
+                        finalizeActiveLogIfNeeded(endReason = "disconnected")
+                        stopAndCleanupAsync(reason = "disconnected")
                     }
+                    previousState = connectionState
                 }
             }
+    }
+
+    private fun extractLogContext(intent: Intent?) {
+        val incomingDeviceId = intent?.getLongExtra(EXTRA_DEVICE_ID, -1L) ?: -1L
+        val incomingType = intent?.getStringExtra(EXTRA_CONNECTION_TYPE)
+
+        if (incomingDeviceId > 0L) {
+            logDeviceId = incomingDeviceId
+        }
+        if (!incomingType.isNullOrBlank()) {
+            logConnectionType = incomingType
+        }
+    }
+
+    private suspend fun startActiveLogIfPossible() {
+        if (activeLogId != null) return
+        val deviceId = logDeviceId ?: return
+        val type = logConnectionType ?: return
+
+        val startTimeMs = System.currentTimeMillis()
+        val logId = connectionLogRepository.startLog(deviceId = deviceId, connectionType = type, startTimeMs = startTimeMs)
+        activeLogId = logId
+        activeLogStartTimeMs = startTimeMs
+
+        samples = 0
+        fpsSum = 0
+        latencySum = 0
+
+        connectionLogJob?.cancel()
+        connectionLogJob =
+            serviceScope.launch(Dispatchers.Default) {
+                while (isActive) {
+                    delay(1_000)
+                    val snapshot = _state.value
+                    fpsSum += snapshot.fps.toLong().coerceAtLeast(0L)
+                    latencySum += snapshot.latencyMs.toLong().coerceAtLeast(0L)
+                    samples += 1
+                }
+            }
+    }
+
+    private suspend fun finalizeActiveLogIfNeeded(endReason: String) {
+        val logId = activeLogId ?: return
+        val deviceId = logDeviceId ?: return
+        val type = logConnectionType ?: return
+        val startTimeMs = activeLogStartTimeMs ?: return
+
+        Timber.i("Finalizing connection log id=$logId reason=$endReason")
+
+        connectionLogJob?.cancel()
+        connectionLogJob = null
+
+        val sampleCount = samples
+        val avgFps =
+            if (sampleCount > 0) (fpsSum.toFloat() / sampleCount.toFloat()) else null
+        val avgLatencyMs =
+            if (sampleCount > 0) (latencySum / sampleCount).toInt() else null
+
+        val endTimeMs = System.currentTimeMillis()
+        connectionLogRepository.endLog(
+            logId = logId,
+            deviceId = deviceId,
+            connectionType = type,
+            startTimeMs = startTimeMs,
+            endTimeMs = endTimeMs,
+            avgFps = avgFps,
+            avgLatencyMs = avgLatencyMs,
+        )
+
+        activeLogId = null
+        activeLogStartTimeMs = null
+        samples = 0
+        fpsSum = 0
+        latencySum = 0
     }
 
     private fun startVideoCollector() {
@@ -440,6 +564,8 @@ class DisplayService : Service() {
         notificationJob = null
         metricsJob?.cancel()
         metricsJob = null
+        connectionLogJob?.cancel()
+        connectionLogJob = null
         settingsJob?.cancel()
         settingsJob = null
 
@@ -451,6 +577,23 @@ class DisplayService : Service() {
 
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
         stopSelf()
+    }
+
+    private fun stopAndCleanupAsync(reason: String) {
+        serviceScope.launch(Dispatchers.Default) {
+            val shouldRun =
+                cleanupMutex.withLock {
+                    if (cleanedUp) return@withLock false
+                    cleanedUp = true
+                    true
+                }
+            if (!shouldRun) return@launch
+
+            runCatching { finalizeActiveLogIfNeeded(endReason = reason) }
+                .onFailure { Timber.w(it, "Finalize connection log failed") }
+
+            stopAndCleanup(reason = reason)
+        }
     }
 
     private fun PerformancePreset.toPerformanceMode(): PerformanceMode {

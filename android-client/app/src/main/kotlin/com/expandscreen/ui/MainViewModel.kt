@@ -174,12 +174,13 @@ class MainViewModel @Inject constructor(
                     autoReconnect = autoReconnect,
                 )
             result.onSuccess {
-                deviceRepository.upsertConnectedDevice(
+                val deviceId =
+                    deviceRepository.upsertConnectedDevice(
                     deviceName = deviceNameForHistory,
                     ipAddress = host,
                     connectionType = "WiFi",
                 )
-                _events.emit(MainUiEvent.NavigateToDisplay)
+                _events.emit(MainUiEvent.NavigateToDisplay(deviceId = deviceId, connectionType = "WiFi"))
             }.onFailure { err ->
                 _uiState.update { it.copy(lastError = err.message ?: err.toString()) }
                 _events.emit(MainUiEvent.ShowSnackbar("连接失败：${err.message ?: err.javaClass.simpleName}"))
@@ -201,12 +202,13 @@ class MainViewModel @Inject constructor(
             _uiState.update { it.copy(lastError = null) }
             val result = networkManager.connectViaUSB(handshake)
             result.onSuccess {
-                deviceRepository.upsertConnectedDevice(
+                val deviceId =
+                    deviceRepository.upsertConnectedDevice(
                     deviceName = "USB",
                     ipAddress = null,
                     connectionType = "USB",
                 )
-                _events.emit(MainUiEvent.NavigateToDisplay)
+                _events.emit(MainUiEvent.NavigateToDisplay(deviceId = deviceId, connectionType = "USB"))
             }.onFailure { err ->
                 _uiState.update { it.copy(lastError = err.message ?: err.toString()) }
                 _events.emit(MainUiEvent.ShowSnackbar("USB连接失败：${err.message ?: err.javaClass.simpleName}"))

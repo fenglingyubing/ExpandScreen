@@ -80,6 +80,19 @@ import timber.log.Timber
  */
 @AndroidEntryPoint
 class DisplayActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_DEVICE_ID = "com.expandscreen.extra.DEVICE_ID"
+        const val EXTRA_CONNECTION_TYPE = "com.expandscreen.extra.CONNECTION_TYPE"
+    }
+
+    private val logDeviceId: Long? by lazy {
+        intent?.getLongExtra(EXTRA_DEVICE_ID, -1L)?.takeIf { it > 0L }
+    }
+
+    private val logConnectionType: String? by lazy {
+        intent?.getStringExtra(EXTRA_CONNECTION_TYPE)?.takeIf { it.isNotBlank() }
+    }
+
 
     @Inject lateinit var networkManager: NetworkManager
     @Inject lateinit var settingsRepository: SettingsRepository
@@ -235,7 +248,13 @@ class DisplayActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        ContextCompat.startForegroundService(this, DisplayService.startIntent(this))
+        val startIntent =
+            if (logDeviceId != null && logConnectionType != null) {
+                DisplayService.startIntent(this, logDeviceId!!, logConnectionType!!)
+            } else {
+                DisplayService.startIntent(this)
+            }
+        ContextCompat.startForegroundService(this, startIntent)
         isServiceBound =
             bindService(
                 Intent(this, DisplayService::class.java),

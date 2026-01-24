@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.expandscreen.data.database.ConnectionLogDao
 import com.expandscreen.data.database.DeviceDao
 import com.expandscreen.data.database.ExpandScreenDatabase
+import com.expandscreen.data.database.ExpandScreenDatabaseMigrations
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,7 +32,8 @@ object DatabaseModule {
             ExpandScreenDatabase::class.java,
             "expandscreen_db"
         )
-            .fallbackToDestructiveMigration() // TODO: Implement proper migrations
+            .addMigrations(*ExpandScreenDatabaseMigrations.ALL)
+            .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
 

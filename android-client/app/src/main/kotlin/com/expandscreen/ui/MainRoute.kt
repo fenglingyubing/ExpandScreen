@@ -21,8 +21,13 @@ fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                MainUiEvent.NavigateToDisplay -> {
-                    context.startActivity(Intent(context, DisplayActivity::class.java))
+                is MainUiEvent.NavigateToDisplay -> {
+                    context.startActivity(
+                        Intent(context, DisplayActivity::class.java).apply {
+                            putExtra(DisplayActivity.EXTRA_DEVICE_ID, event.deviceId)
+                            putExtra(DisplayActivity.EXTRA_CONNECTION_TYPE, event.connectionType)
+                        },
+                    )
                 }
                 MainUiEvent.NavigateToSettings -> {
                     context.startActivity(Intent(context, SettingsActivity::class.java))

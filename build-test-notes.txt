@@ -351,6 +351,31 @@
 
 ---
 
+任务3.2.3构建要求:
+- JDK 17+（Gradle 8.x 需要较新JDK；本地默认 JDK8 会导致 Gradle 8.2 无法启动）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+- .NET 8.0 SDK（用于仓库内 .NET 侧回归）
+
+构建/测试状态:
+✅ AND-103（Android 性能优化）相关代码已完成
+✅ Android 构建与单元测试通过
+✅ .NET 构建与测试通过
+
+关键命令与输出（本地Windows）:
+1. Android（assemble + 单元测试）:
+  - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --no-daemon; popd`
+  - 结果：BUILD SUCCESSFUL（48 actionable tasks, 1m 43s）
+2. .NET（解决方案测试）:
+  - `dotnet test ExpandScreen.sln -c Release`
+  - 结果：Passed 21, Skipped 9, Failed 0
+
+说明:
+- Android 编译期提示 `INFO_OUTPUT_BUFFERS_CHANGED` / `DhcpInfo` 等 API deprecated（不影响构建/测试通过）。
+- .NET 构建过程中存在历史代码的编译告警（CS1998/CS8602/CS8625 等），不影响本任务测试通过。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

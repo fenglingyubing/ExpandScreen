@@ -21,6 +21,7 @@ import com.expandscreen.core.decoder.VideoDecoderConfig
 import com.expandscreen.core.network.ConnectionState
 import com.expandscreen.core.network.IncomingMessage
 import com.expandscreen.core.network.NetworkManager
+import com.expandscreen.core.performance.PerformanceMode
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -99,6 +100,10 @@ class DisplayService : Service() {
 
         fun disconnect() {
             this@DisplayService.disconnect()
+        }
+
+        fun setPerformanceMode(mode: PerformanceMode) {
+            this@DisplayService.setPerformanceMode(mode)
         }
 
         fun setDecoderOutputSurface(surface: Surface?) {
@@ -202,6 +207,18 @@ class DisplayService : Service() {
         networkManager.disconnect()
     }
 
+    fun setPerformanceMode(mode: PerformanceMode) {
+        if (_state.value.performanceMode == mode) return
+        Timber.i("DisplayService performance mode -> ${mode.label}")
+        _state.value = _state.value.copy(performanceMode = mode)
+
+        synchronized(decoderInitLock) {
+            decoderInitialized = false
+        }
+        runCatching { decoder.flush() }
+            .onFailure { Timber.w(it, "Decoder flush failed after performance mode change") }
+    }
+
     private fun startProcessingIfNeeded() {
         serviceScope.launch {
             processingMutex.withLock {
@@ -242,12 +259,23 @@ class DisplayService : Service() {
             serviceScope.launch(Dispatchers.Default) {
                 var windowStartMs = System.currentTimeMillis()
                 var framesInWindow = 0
+                var lastAcceptedFrameAtMs = 0L
 
                 networkManager.incomingMessages.collect { incoming ->
                     if (incoming !is IncomingMessage.VideoFrame) return@collect
 
                     runCatching {
                         val nowMs = System.currentTimeMillis()
+                        val mode = _state.value.performanceMode
+
+                        if (mode == PerformanceMode.PowerSave) {
+                            val minIntervalMs = (1_000L / mode.targetRenderFps.coerceAtLeast(1)).coerceAtLeast(1L)
+                            val elapsedSinceLast = nowMs - lastAcceptedFrameAtMs
+                            if (elapsedSinceLast < minIntervalMs && !incoming.message.isKeyFrame) {
+                                return@collect
+                            }
+                        }
+
                         val latencyMs = (nowMs - incoming.timestampMs).coerceAtLeast(0).toInt()
 
                         _state.value =
@@ -258,7 +286,7 @@ class DisplayService : Service() {
                             )
 
                         val surface = outputSurface
-                        if (surface != null && ensureDecoderInitialized(incoming.message.width, incoming.message.height, surface)) {
+                        if (surface != null && ensureDecoderInitialized(incoming.message.width, incoming.message.height, surface, mode)) {
                             val encodedFrame =
                                 EncodedFrame.fromMessage(
                                     message = incoming.message,
@@ -268,6 +296,7 @@ class DisplayService : Service() {
                             decoder.enqueueFrame(encodedFrame)
                         }
 
+                        lastAcceptedFrameAtMs = nowMs
                         framesInWindow += 1
                         val elapsedMs = nowMs - windowStartMs
                         if (elapsedMs >= 1_000L) {
@@ -337,7 +366,7 @@ class DisplayService : Service() {
             }
     }
 
-    private fun ensureDecoderInitialized(width: Int, height: Int, surface: Surface): Boolean {
+    private fun ensureDecoderInitialized(width: Int, height: Int, surface: Surface, mode: PerformanceMode): Boolean {
         synchronized(decoderInitLock) {
             if (decoderInitialized) return true
             decoder.initialize(
@@ -345,6 +374,8 @@ class DisplayService : Service() {
                     width = width.coerceAtLeast(1),
                     height = height.coerceAtLeast(1),
                     outputSurface = surface,
+                    lowLatency = mode.lowLatency,
+                    operatingRate = mode.decoderOperatingRateFps,
                 ),
             )
             decoderInitialized = true

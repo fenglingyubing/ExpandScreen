@@ -169,6 +169,7 @@ class NetworkManager @Inject constructor(
         val output = this.output ?: return Result.failure(IllegalStateException("Not connected"))
         return sendMutex.withLock {
             runCatching {
+                val headerScratch = ByteArray(MessageHeader.HEADER_SIZE_BYTES)
                 withContext(Dispatchers.IO) {
                     for (message in messages) {
                         val payloadBytes =
@@ -180,8 +181,7 @@ class NetworkManager @Inject constructor(
                                 payloadLength = payloadBytes.size,
                                 sequenceNumber = sequenceNumber.incrementAndGet(),
                             )
-                        val messageBytes = MessageCodec.encodeMessage(header, payloadBytes)
-                        output.write(messageBytes)
+                        MessageCodec.writeMessage(output, header, payloadBytes, headerScratch)
                     }
                     output.flush()
                 }
@@ -237,8 +237,9 @@ class NetworkManager @Inject constructor(
 
     private suspend fun receiveLoop(input: InputStream, output: OutputStream) {
         try {
+            val headerScratch = ByteArray(MessageHeader.HEADER_SIZE_BYTES)
             while (scope.isActive) {
-                val header = MessageCodec.readHeader(input)
+                val header = MessageCodec.readHeader(input, headerScratch)
                 if (header.payloadLength < 0 || header.payloadLength > maxPayloadBytes) {
                     throw IOException("Invalid payload length: ${header.payloadLength}")
                 }
@@ -374,6 +375,7 @@ class NetworkManager @Inject constructor(
     ): Result<Unit> {
         return sendMutex.withLock {
             runCatching {
+                val headerScratch = ByteArray(MessageHeader.HEADER_SIZE_BYTES)
                 val payloadBytes = MessageCodec.encodeJsonPayload(payload, serializer)
                 val header =
                     MessageHeader(
@@ -382,9 +384,8 @@ class NetworkManager @Inject constructor(
                         payloadLength = payloadBytes.size,
                         sequenceNumber = sequenceNumber.incrementAndGet(),
                     )
-                val messageBytes = MessageCodec.encodeMessage(header, payloadBytes)
                 withContext(Dispatchers.IO) {
-                    output.write(messageBytes)
+                    MessageCodec.writeMessage(output, header, payloadBytes, headerScratch)
                     output.flush()
                 }
             }

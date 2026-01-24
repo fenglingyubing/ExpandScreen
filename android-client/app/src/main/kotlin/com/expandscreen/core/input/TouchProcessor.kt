@@ -23,7 +23,7 @@ class TouchProcessor(
     private val videoWidthPxProvider: () -> Int,
     private val videoHeightPxProvider: () -> Int,
     private val rotationDegreesProvider: () -> Int = { 0 },
-    private val minMoveIntervalMs: Long = 8L,
+    private val minMoveIntervalMsProvider: () -> Long = { 8L },
 ) {
     private var lastMoveSentAtMs: Long = 0L
 
@@ -45,6 +45,7 @@ class TouchProcessor(
 
         if (touchAction == TouchAction.Move) {
             val now = SystemClock.uptimeMillis()
+            val minMoveIntervalMs = minMoveIntervalMsProvider().coerceAtLeast(0L)
             if (now - lastMoveSentAtMs < minMoveIntervalMs) {
                 return emptyList()
             }
@@ -192,4 +193,3 @@ class TouchProcessor(
         Up(2),
     }
 }
-

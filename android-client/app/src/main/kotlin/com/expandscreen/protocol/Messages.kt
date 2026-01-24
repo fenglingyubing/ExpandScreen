@@ -2,6 +2,7 @@ package com.expandscreen.protocol
 
 import java.io.EOFException
 import java.io.InputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Base64
@@ -141,19 +142,23 @@ object MessageCodec {
             encodeDefaults = true
         }
 
+    fun encodeHeaderInto(buffer: ByteArray, header: MessageHeader, offset: Int = 0) {
+        require(buffer.size - offset >= MessageHeader.HEADER_SIZE_BYTES) {
+            "buffer too small: need ${MessageHeader.HEADER_SIZE_BYTES} bytes from offset=$offset"
+        }
+
+        var i = offset
+        putIntBE(buffer, i, header.magic); i += 4
+        buffer[i++] = header.type.value
+        buffer[i++] = header.version
+        putShortBE(buffer, i, header.reserved); i += 2
+        putLongBE(buffer, i, header.timestampMs); i += 8
+        putIntBE(buffer, i, header.payloadLength); i += 4
+        putIntBE(buffer, i, header.sequenceNumber); i += 4
+    }
+
     fun encodeHeader(header: MessageHeader): ByteArray {
-        val buffer =
-            ByteBuffer.allocate(MessageHeader.HEADER_SIZE_BYTES).order(ByteOrder.BIG_ENDIAN)
-
-        buffer.putInt(header.magic)
-        buffer.put(header.type.value)
-        buffer.put(header.version)
-        buffer.putShort(header.reserved)
-        buffer.putLong(header.timestampMs)
-        buffer.putInt(header.payloadLength)
-        buffer.putInt(header.sequenceNumber)
-
-        return buffer.array()
+        return ByteArray(MessageHeader.HEADER_SIZE_BYTES).also { out -> encodeHeaderInto(out, header) }
     }
 
     fun decodeHeader(headerBytes: ByteArray): MessageHeader {
@@ -198,9 +203,26 @@ object MessageCodec {
         return decodeHeader(headerBytes)
     }
 
+    fun readHeader(input: InputStream, scratch: ByteArray): MessageHeader {
+        require(scratch.size >= MessageHeader.HEADER_SIZE_BYTES) {
+            "scratch too small: need >= ${MessageHeader.HEADER_SIZE_BYTES}"
+        }
+        readFullyInto(input, scratch, MessageHeader.HEADER_SIZE_BYTES)
+        return decodeHeader(scratch)
+    }
+
     fun readPayload(input: InputStream, payloadLength: Int): ByteArray {
         if (payloadLength <= 0) return ByteArray(0)
         return readFully(input, payloadLength)
+    }
+
+    fun writeMessage(output: OutputStream, header: MessageHeader, payload: ByteArray, headerScratch: ByteArray? = null) {
+        val headerBytes = headerScratch ?: ByteArray(MessageHeader.HEADER_SIZE_BYTES)
+        encodeHeaderInto(headerBytes, header)
+        output.write(headerBytes, 0, MessageHeader.HEADER_SIZE_BYTES)
+        if (payload.isNotEmpty()) {
+            output.write(payload)
+        }
     }
 
     fun encodeMessage(header: MessageHeader, payload: ByteArray): ByteArray {
@@ -230,5 +252,42 @@ object MessageCodec {
             offset += read
         }
         return buffer
+    }
+
+    fun readFullyInto(input: InputStream, buffer: ByteArray, size: Int, offset: Int = 0) {
+        require(size >= 0) { "size must be >= 0" }
+        require(offset >= 0) { "offset must be >= 0" }
+        require(buffer.size - offset >= size) { "buffer too small for size=$size at offset=$offset" }
+
+        var localOffset = offset
+        val end = offset + size
+        while (localOffset < end) {
+            val read = input.read(buffer, localOffset, end - localOffset)
+            if (read == -1) throw EOFException("Unexpected EOF while reading $size bytes")
+            localOffset += read
+        }
+    }
+
+    private fun putShortBE(buffer: ByteArray, offset: Int, value: Short) {
+        buffer[offset] = ((value.toInt() ushr 8) and 0xFF).toByte()
+        buffer[offset + 1] = (value.toInt() and 0xFF).toByte()
+    }
+
+    private fun putIntBE(buffer: ByteArray, offset: Int, value: Int) {
+        buffer[offset] = ((value ushr 24) and 0xFF).toByte()
+        buffer[offset + 1] = ((value ushr 16) and 0xFF).toByte()
+        buffer[offset + 2] = ((value ushr 8) and 0xFF).toByte()
+        buffer[offset + 3] = (value and 0xFF).toByte()
+    }
+
+    private fun putLongBE(buffer: ByteArray, offset: Int, value: Long) {
+        buffer[offset] = ((value ushr 56) and 0xFF).toByte()
+        buffer[offset + 1] = ((value ushr 48) and 0xFF).toByte()
+        buffer[offset + 2] = ((value ushr 40) and 0xFF).toByte()
+        buffer[offset + 3] = ((value ushr 32) and 0xFF).toByte()
+        buffer[offset + 4] = ((value ushr 24) and 0xFF).toByte()
+        buffer[offset + 5] = ((value ushr 16) and 0xFF).toByte()
+        buffer[offset + 6] = ((value ushr 8) and 0xFF).toByte()
+        buffer[offset + 7] = (value and 0xFF).toByte()
     }
 }

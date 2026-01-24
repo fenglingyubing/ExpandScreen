@@ -267,6 +267,7 @@ namespace ExpandScreen.Services.Configuration
 
             config.General ??= new GeneralConfig();
             config.Video ??= new VideoConfig();
+            config.Audio ??= new AudioConfig();
             config.Network ??= new NetworkConfig();
             config.Performance ??= new PerformanceConfig();
             config.Logging ??= new LoggingConfig();
@@ -293,6 +294,37 @@ namespace ExpandScreen.Services.Configuration
             {
                 warnings.Add("video.bitrateBps too small; clamped to 250000.");
                 config.Video.BitrateBps = 250_000;
+            }
+
+            // Audio
+            if (config.Audio.SampleRate is not (8000 or 12000 or 16000 or 24000 or 48000))
+            {
+                warnings.Add("audio.sampleRate invalid; reset to 48000.");
+                config.Audio.SampleRate = 48000;
+            }
+
+            if (config.Audio.Channels is < 1 or > 2)
+            {
+                warnings.Add("audio.channels out of range; clamped to 1-2.");
+                config.Audio.Channels = Math.Clamp(config.Audio.Channels, 1, 2);
+            }
+
+            if (config.Audio.FrameDurationMs is not (10 or 20 or 40 or 60))
+            {
+                warnings.Add("audio.frameDurationMs invalid; reset to 20.");
+                config.Audio.FrameDurationMs = 20;
+            }
+
+            if (config.Audio.BitrateBps < 6000)
+            {
+                warnings.Add("audio.bitrateBps too small; clamped to 6000.");
+                config.Audio.BitrateBps = 6000;
+            }
+
+            if (config.Audio.BitrateBps > 512_000)
+            {
+                warnings.Add("audio.bitrateBps too large; clamped to 512000.");
+                config.Audio.BitrateBps = 512_000;
             }
 
             if (config.Network.TcpPort < 1024 || config.Network.TcpPort > 65535)

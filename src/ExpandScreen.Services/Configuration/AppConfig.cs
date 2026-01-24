@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using ExpandScreen.Services.Connection;
+using ExpandScreen.Protocol.Messages;
 
 namespace ExpandScreen.Services.Configuration
 {
@@ -31,6 +32,7 @@ namespace ExpandScreen.Services.Configuration
     {
         public GeneralConfig General { get; set; } = new();
         public VideoConfig Video { get; set; } = new();
+        public AudioConfig Audio { get; set; } = new();
         public NetworkConfig Network { get; set; } = new();
         public PerformanceConfig Performance { get; set; } = new();
         public LoggingConfig Logging { get; set; } = new();
@@ -52,6 +54,16 @@ namespace ExpandScreen.Services.Configuration
         public int FrameRate { get; set; } = 60;
         public int BitrateBps { get; set; } = 5_000_000;
         public VideoEncoderPreference Encoder { get; set; } = VideoEncoderPreference.Auto;
+    }
+
+    public sealed class AudioConfig
+    {
+        public bool Enabled { get; set; } = false;
+        public AudioCodec Codec { get; set; } = AudioCodec.Opus;
+        public int SampleRate { get; set; } = 48000;
+        public int Channels { get; set; } = 2;
+        public int BitrateBps { get; set; } = 64000;
+        public int FrameDurationMs { get; set; } = 20;
     }
 
     public sealed class NetworkConfig

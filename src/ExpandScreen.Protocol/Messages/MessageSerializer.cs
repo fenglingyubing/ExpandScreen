@@ -99,7 +99,7 @@ namespace ExpandScreen.Protocol.Messages
         /// <summary>
         /// 创建消息头
         /// </summary>
-        public static MessageHeader CreateHeader(MessageType type, uint payloadLength, uint sequenceNumber)
+        public static MessageHeader CreateHeader(MessageType type, uint payloadLength, uint sequenceNumber, ulong? timestampMs = null)
         {
             return new MessageHeader
             {
@@ -107,7 +107,7 @@ namespace ExpandScreen.Protocol.Messages
                 Type = type,
                 Version = PROTOCOL_VERSION,
                 Reserved = 0,
-                Timestamp = GetTimestampMs(),
+                Timestamp = timestampMs ?? GetTimestampMs(),
                 PayloadLength = payloadLength,
                 SequenceNumber = sequenceNumber
             };

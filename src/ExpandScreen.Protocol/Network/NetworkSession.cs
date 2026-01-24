@@ -163,14 +163,14 @@ namespace ExpandScreen.Protocol.Network
         /// <summary>
         /// 发送消息
         /// </summary>
-        public async Task<bool> SendMessageAsync<T>(MessageType type, T payload)
+        public async Task<bool> SendMessageAsync<T>(MessageType type, T payload, ulong? timestampMs = null)
         {
             if (!_isHandshakeCompleted && type != MessageType.Handshake && type != MessageType.HandshakeAck)
             {
                 throw new InvalidOperationException("Handshake not completed");
             }
 
-            return await _sender.SendMessageAsync(type, payload);
+            return await _sender.SendMessageAsync(type, payload, timestampMs);
         }
 
         /// <summary>

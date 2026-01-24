@@ -57,7 +57,7 @@ namespace ExpandScreen.Protocol.Network
         /// <summary>
         /// 发送消息（异步入队）
         /// </summary>
-        public async Task<bool> SendMessageAsync<T>(MessageType type, T payload)
+        public async Task<bool> SendMessageAsync<T>(MessageType type, T payload, ulong? timestampMs = null)
         {
             if (_disposed)
             {
@@ -78,7 +78,7 @@ namespace ExpandScreen.Protocol.Network
                 }
 
                 // 创建消息头
-                MessageHeader header = MessageSerializer.CreateHeader(type, (uint)payloadBytes.Length, _sequenceNumber++);
+                MessageHeader header = MessageSerializer.CreateHeader(type, (uint)payloadBytes.Length, _sequenceNumber++, timestampMs);
 
                 // 组合完整消息
                 byte[] message = MessageSerializer.CombineMessage(header, payloadBytes);

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
+using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Services.Configuration;
 
 namespace ExpandScreen.UI.Converters
@@ -19,6 +20,8 @@ namespace ExpandScreen.UI.Converters
                 PerformanceMode.Balanced => "均衡",
                 PerformanceMode.LowLatency => "低延迟",
                 PerformanceMode.Quality => "高质量",
+                AudioCodec.Opus => "Opus（低延迟）",
+                AudioCodec.Aac => "AAC（兼容）",
                 _ => value?.ToString() ?? string.Empty
             };
         }
@@ -29,4 +32,3 @@ namespace ExpandScreen.UI.Converters
         }
     }
 }
-

@@ -36,6 +36,19 @@ namespace ExpandScreen.Protocol.Messages
     }
 
     /// <summary>
+    /// 音频配置消息（用于在开始推送前协商参数）。
+    /// </summary>
+    public class AudioConfigMessage
+    {
+        public bool Enabled { get; set; }
+        public AudioCodec Codec { get; set; } = AudioCodec.Opus;
+        public int SampleRate { get; set; } = 48000;
+        public int Channels { get; set; } = 2;
+        public int BitrateBps { get; set; } = 64000;
+        public int FrameDurationMs { get; set; } = 20;
+    }
+
+    /// <summary>
     /// 触控事件消息
     /// </summary>
     public class TouchEventMessage

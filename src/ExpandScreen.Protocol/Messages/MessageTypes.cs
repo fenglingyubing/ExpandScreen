@@ -10,7 +10,9 @@ namespace ExpandScreen.Protocol.Messages
         VideoFrame = 0x03,
         TouchEvent = 0x04,
         Heartbeat = 0x05,
-        HeartbeatAck = 0x06
+        HeartbeatAck = 0x06,
+        AudioConfig = 0x07,
+        AudioFrame = 0x08
     }
 
     /// <summary>

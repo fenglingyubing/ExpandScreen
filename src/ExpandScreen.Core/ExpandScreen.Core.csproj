@@ -17,6 +17,8 @@
     <PackageReference Include="Vortice.DXGI" Version="3.3.4" />
     <PackageReference Include="System.Threading.Channels" Version="7.0.0" />
     <PackageReference Include="FFmpeg.AutoGen" Version="7.0.0" />
+    <PackageReference Include="Concentus" Version="1.1.7" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 
 </Project>

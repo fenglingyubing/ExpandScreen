@@ -322,6 +322,75 @@
                         </ScrollViewer>
                     </TabItem>
 
+                    <TabItem Header="音频">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <Border Style="{DynamicResource CardStyle}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="音频传输"
+                                               FontFamily="{DynamicResource UIFont}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               Margin="0,0,0,14"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="180"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="启用音频" Style="{StaticResource SettingsLabelStyle}" VerticalAlignment="Center"/>
+                                        <CheckBox Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding AudioEnabled}"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="编码格式" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0" VerticalAlignment="Center"/>
+                                        <ComboBox Grid.Row="1" Grid.Column="1"
+                                                  Style="{StaticResource SettingsComboBoxStyle}"
+                                                  ItemsSource="{Binding AudioCodecOptions}"
+                                                  SelectedItem="{Binding AudioCodec}"
+                                                  Margin="0,14,0,0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Converter={StaticResource ConfigEnumDisplayConverter}}"/>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="码率（kbps）" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0" VerticalAlignment="Center"/>
+                                        <TextBox Grid.Row="2" Grid.Column="1"
+                                                 Style="{StaticResource SettingsTextBoxStyle}"
+                                                 Text="{Binding AudioBitrateKbps, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}"
+                                                 Margin="0,14,0,0"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="帧时长（ms）" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0" VerticalAlignment="Center"/>
+                                        <TextBox Grid.Row="3" Grid.Column="1"
+                                                 Style="{StaticResource SettingsTextBoxStyle}"
+                                                 Text="{Binding AudioFrameDurationMs, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}"
+                                                 Margin="0,14,0,0"/>
+
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="当前配置" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1"
+                                                   Text="{Binding AudioSummary}"
+                                                   FontFamily="{DynamicResource MonoFont}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   Margin="0,14,0,0"/>
+                                    </Grid>
+
+                                    <TextBlock Text="提示：开启音频会额外占用带宽；需接收端实现音频解码与播放。"
+                                               Style="{StaticResource SettingsLabelStyle}"
+                                               Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </ScrollViewer>
+                    </TabItem>
+
                     <TabItem Header="网络">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <Border Style="{DynamicResource CardStyle}" Margin="0,16,0,0">

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Services.Configuration;
 
 namespace ExpandScreen.UI.ViewModels
@@ -28,6 +29,13 @@ namespace ExpandScreen.UI.ViewModels
         private int _bitrateMbps;
         private VideoEncoderPreference _encoder;
 
+        private bool _audioEnabled;
+        private AudioCodec _audioCodec;
+        private int _audioBitrateKbps;
+        private int _audioFrameDurationMs;
+        private int _audioSampleRate = 48000;
+        private int _audioChannels = 2;
+
         private int _tcpPort;
         private int _timeoutSeconds;
         private int _reconnectAttempts;
@@ -44,6 +52,7 @@ namespace ExpandScreen.UI.ViewModels
             ThemeOptions = new ObservableCollection<ThemeMode>((ThemeMode[])Enum.GetValues(typeof(ThemeMode)));
             EncoderOptions = new ObservableCollection<VideoEncoderPreference>((VideoEncoderPreference[])Enum.GetValues(typeof(VideoEncoderPreference)));
             PerformanceModeOptions = new ObservableCollection<PerformanceMode>((PerformanceMode[])Enum.GetValues(typeof(PerformanceMode)));
+            AudioCodecOptions = new ObservableCollection<AudioCodec>((AudioCodec[])Enum.GetValues(typeof(AudioCodec)));
 
             ResolutionOptions = new ObservableCollection<ResolutionOption>
             {
@@ -61,6 +70,7 @@ namespace ExpandScreen.UI.ViewModels
         public ObservableCollection<VideoEncoderPreference> EncoderOptions { get; }
         public ObservableCollection<PerformanceMode> PerformanceModeOptions { get; }
         public ObservableCollection<ResolutionOption> ResolutionOptions { get; }
+        public ObservableCollection<AudioCodec> AudioCodecOptions { get; }
 
         public event EventHandler<ThemeMode>? ThemePreviewRequested;
 
@@ -142,6 +152,54 @@ namespace ExpandScreen.UI.ViewModels
             }
         }
 
+        public bool AudioEnabled
+        {
+            get => _audioEnabled;
+            set
+            {
+                if (SetProperty(ref _audioEnabled, value))
+                {
+                    OnPropertyChanged(nameof(AudioSummary));
+                }
+            }
+        }
+
+        public AudioCodec AudioCodec
+        {
+            get => _audioCodec;
+            set
+            {
+                if (SetProperty(ref _audioCodec, value))
+                {
+                    OnPropertyChanged(nameof(AudioSummary));
+                }
+            }
+        }
+
+        public int AudioBitrateKbps
+        {
+            get => _audioBitrateKbps;
+            set
+            {
+                if (SetProperty(ref _audioBitrateKbps, value))
+                {
+                    OnPropertyChanged(nameof(AudioSummary));
+                }
+            }
+        }
+
+        public int AudioFrameDurationMs
+        {
+            get => _audioFrameDurationMs;
+            set
+            {
+                if (SetProperty(ref _audioFrameDurationMs, value))
+                {
+                    OnPropertyChanged(nameof(AudioSummary));
+                }
+            }
+        }
+
         public int TcpPort
         {
             get => _tcpPort;
@@ -179,6 +237,9 @@ namespace ExpandScreen.UI.ViewModels
         }
 
         public string VideoSummary => $"{Resolution.DisplayName} • {FrameRate}fps • {BitrateMbps}Mbps • {Encoder}";
+        public string AudioSummary => AudioEnabled
+            ? $"{AudioCodec} • {AudioBitrateKbps}kbps • {AudioFrameDurationMs}ms"
+            : "关闭";
 
         public void LoadFrom(AppConfig config)
         {
@@ -200,6 +261,13 @@ namespace ExpandScreen.UI.ViewModels
             PerformanceMode = config.Performance.Mode;
             EncodingThreadCount = config.Performance.EncodingThreadCount;
             _logging = config.Logging ?? new LoggingConfig();
+
+            AudioEnabled = config.Audio.Enabled;
+            AudioCodec = config.Audio.Codec;
+            AudioBitrateKbps = Math.Max(6, (int)Math.Round(config.Audio.BitrateBps / 1000.0));
+            AudioFrameDurationMs = config.Audio.FrameDurationMs;
+            _audioSampleRate = config.Audio.SampleRate;
+            _audioChannels = config.Audio.Channels;
         }
 
         public AppConfig ToConfig()
@@ -219,6 +287,15 @@ namespace ExpandScreen.UI.ViewModels
                     FrameRate = FrameRate,
                     BitrateBps = Math.Max(1, BitrateMbps) * 1_000_000,
                     Encoder = Encoder
+                },
+                Audio = new AudioConfig
+                {
+                    Enabled = AudioEnabled,
+                    Codec = AudioCodec,
+                    SampleRate = _audioSampleRate,
+                    Channels = _audioChannels,
+                    BitrateBps = Math.Max(6, AudioBitrateKbps) * 1000,
+                    FrameDurationMs = AudioFrameDurationMs
                 },
                 Network = new NetworkConfig
                 {

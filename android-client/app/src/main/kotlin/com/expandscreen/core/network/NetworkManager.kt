@@ -54,6 +54,7 @@ class NetworkManager @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val connectionMutex = Mutex()
+    private val sendMutex = Mutex()
 
     private val _incomingMessages =
         MutableSharedFlow<IncomingMessage>(extraBufferCapacity = 64)
@@ -156,6 +157,36 @@ class NetworkManager @Inject constructor(
      */
     suspend fun sendTouchEvent(message: TouchEventMessage): Result<Unit> {
         return sendJsonMessage(MessageType.TouchEvent, TouchEventMessage.serializer(), message)
+    }
+
+    /**
+     * Send multiple TouchEvent messages in one flush (batch).
+     *
+     * This reduces syscall/flush overhead when MotionEvent contains multiple pointers.
+     */
+    suspend fun sendTouchEvents(messages: List<TouchEventMessage>): Result<Unit> {
+        if (messages.isEmpty()) return Result.success(Unit)
+        val output = this.output ?: return Result.failure(IllegalStateException("Not connected"))
+        return sendMutex.withLock {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    for (message in messages) {
+                        val payloadBytes =
+                            MessageCodec.encodeJsonPayload(message, TouchEventMessage.serializer())
+                        val header =
+                            MessageHeader(
+                                type = MessageType.TouchEvent,
+                                timestampMs = MessageCodec.nowTimestampMs(),
+                                payloadLength = payloadBytes.size,
+                                sequenceNumber = sequenceNumber.incrementAndGet(),
+                            )
+                        val messageBytes = MessageCodec.encodeMessage(header, payloadBytes)
+                        output.write(messageBytes)
+                    }
+                    output.flush()
+                }
+            }
+        }
     }
 
     fun isConnected(): Boolean = _connectionState.value is ConnectionState.Connected
@@ -341,19 +372,21 @@ class NetworkManager @Inject constructor(
         serializer: kotlinx.serialization.KSerializer<T>,
         payload: T,
     ): Result<Unit> {
-        return runCatching {
-            val payloadBytes = MessageCodec.encodeJsonPayload(payload, serializer)
-            val header =
-                MessageHeader(
-                    type = type,
-                    timestampMs = MessageCodec.nowTimestampMs(),
-                    payloadLength = payloadBytes.size,
-                    sequenceNumber = sequenceNumber.incrementAndGet(),
-                )
-            val messageBytes = MessageCodec.encodeMessage(header, payloadBytes)
-            withContext(Dispatchers.IO) {
-                output.write(messageBytes)
-                output.flush()
+        return sendMutex.withLock {
+            runCatching {
+                val payloadBytes = MessageCodec.encodeJsonPayload(payload, serializer)
+                val header =
+                    MessageHeader(
+                        type = type,
+                        timestampMs = MessageCodec.nowTimestampMs(),
+                        payloadLength = payloadBytes.size,
+                        sequenceNumber = sequenceNumber.incrementAndGet(),
+                    )
+                val messageBytes = MessageCodec.encodeMessage(header, payloadBytes)
+                withContext(Dispatchers.IO) {
+                    output.write(messageBytes)
+                    output.flush()
+                }
             }
         }
     }

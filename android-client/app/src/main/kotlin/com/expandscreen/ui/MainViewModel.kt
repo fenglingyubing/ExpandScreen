@@ -149,12 +149,13 @@ class MainViewModel @Inject constructor(
     }
 
     private fun connectWifiInternal(host: String, port: Int, deviceNameForHistory: String) {
+        val (screenWidth, screenHeight) = getLandscapeScreenSizePx()
         val handshake =
             HandshakeMessage(
                 deviceId = _uiState.value.androidDeviceId,
                 deviceName = _uiState.value.androidDeviceName,
-                screenWidth = 0,
-                screenHeight = 0,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight,
             )
 
         viewModelScope.launch {
@@ -181,12 +182,13 @@ class MainViewModel @Inject constructor(
     }
 
     fun waitUsb() {
+        val (screenWidth, screenHeight) = getLandscapeScreenSizePx()
         val handshake =
             HandshakeMessage(
                 deviceId = _uiState.value.androidDeviceId,
                 deviceName = _uiState.value.androidDeviceName,
-                screenWidth = 0,
-                screenHeight = 0,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight,
             )
 
         viewModelScope.launch {
@@ -227,5 +229,16 @@ class MainViewModel @Inject constructor(
 
     fun deleteDevice(device: WindowsDeviceEntity) {
         viewModelScope.launch { deviceRepository.deleteDevice(device) }
+    }
+
+    private fun getLandscapeScreenSizePx(): Pair<Int, Int> {
+        val metrics = appContext.resources.displayMetrics
+        val w = metrics.widthPixels.coerceAtLeast(1)
+        val h = metrics.heightPixels.coerceAtLeast(1)
+        return if (w >= h) {
+            w to h
+        } else {
+            h to w
+        }
     }
 }

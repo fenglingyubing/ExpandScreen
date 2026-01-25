@@ -120,6 +120,22 @@
 
 ---
 
+任务4.2.4（AND-204）构建/测试（Windows）
+日期：2026-01-25
+
+Android：
+- 命令：`pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-daemon; popd`
+- 结果：BUILD SUCCESSFUL
+
+.NET：
+- 命令：`dotnet test ExpandScreen.sln -c Release`
+- 结果：通过 36，跳过 9，失败 0（总计 45）
+
+备注：
+- 本地执行 `:app:ktlintCheck` 会因 `android-client/app/build.gradle.kts` 现存格式问题失败（与本任务无关），未作为必需检查项。
+
+---
+
 任务3.2.5构建要求:
 - JDK 17+（本地默认 `JAVA_HOME=JDK8` 会导致 Gradle Daemon 启动失败）
 - Android SDK (API 34)（用于完整 Android 构建/运行；单元测试使用 Robolectric）

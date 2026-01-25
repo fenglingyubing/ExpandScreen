@@ -151,7 +151,30 @@ class SharedPreferencesSettingsRepository @Inject constructor(
                 autoReconnect = prefs.getBoolean(SettingsRepository.NETWORK_AUTO_RECONNECT, default.network.autoReconnect),
             )
 
-        return AppSettings(video = video, performance = performance, display = display, network = network)
+        val gestures =
+            default.gestures.copy(
+                enabled = prefs.getBoolean(SettingsRepository.GESTURES_ENABLED, default.gestures.enabled),
+                sensitivity = prefs.getInt(SettingsRepository.GESTURES_SENSITIVITY, default.gestures.sensitivity),
+                hapticFeedback = prefs.getBoolean(SettingsRepository.GESTURES_HAPTIC, default.gestures.hapticFeedback),
+                visualFeedback = prefs.getBoolean(SettingsRepository.GESTURES_VISUAL, default.gestures.visualFeedback),
+                threeFingerSwipeDown =
+                    parseGestureAction(
+                        prefs.getString(SettingsRepository.GESTURES_THREE_FINGER_SWIPE_DOWN, null),
+                        default.gestures.threeFingerSwipeDown,
+                    ),
+                twoFingerLongPress =
+                    parseGestureAction(
+                        prefs.getString(SettingsRepository.GESTURES_TWO_FINGER_LONG_PRESS, null),
+                        default.gestures.twoFingerLongPress,
+                    ),
+                edgeSwipe =
+                    parseGestureAction(
+                        prefs.getString(SettingsRepository.GESTURES_EDGE_SWIPE, null),
+                        default.gestures.edgeSwipe,
+                    ),
+            )
+
+        return AppSettings(video = video, performance = performance, display = display, network = network, gestures = gestures)
     }
 
     private fun writeToPrefs(settings: AppSettings) {
@@ -172,6 +195,22 @@ class SharedPreferencesSettingsRepository @Inject constructor(
                 preferredConnectionPrefValue(settings.network.preferredConnection),
             )
             .putBoolean(SettingsRepository.NETWORK_AUTO_RECONNECT, settings.network.autoReconnect)
+            .putBoolean(SettingsRepository.GESTURES_ENABLED, settings.gestures.enabled)
+            .putInt(SettingsRepository.GESTURES_SENSITIVITY, settings.gestures.sensitivity)
+            .putBoolean(SettingsRepository.GESTURES_HAPTIC, settings.gestures.hapticFeedback)
+            .putBoolean(SettingsRepository.GESTURES_VISUAL, settings.gestures.visualFeedback)
+            .putString(
+                SettingsRepository.GESTURES_THREE_FINGER_SWIPE_DOWN,
+                gestureActionPrefValue(settings.gestures.threeFingerSwipeDown),
+            )
+            .putString(
+                SettingsRepository.GESTURES_TWO_FINGER_LONG_PRESS,
+                gestureActionPrefValue(settings.gestures.twoFingerLongPress),
+            )
+            .putString(
+                SettingsRepository.GESTURES_EDGE_SWIPE,
+                gestureActionPrefValue(settings.gestures.edgeSwipe),
+            )
             .apply()
     }
 
@@ -270,6 +309,23 @@ class SharedPreferencesSettingsRepository @Inject constructor(
             ThemeMode.System -> "system"
             ThemeMode.Light -> "light"
             ThemeMode.Dark -> "dark"
+        }
+    }
+
+    private fun parseGestureAction(value: String?, default: GestureMappedAction): GestureMappedAction {
+        return when (value) {
+            "none" -> GestureMappedAction.None
+            "menu" -> GestureMappedAction.ShowMenu
+            "back" -> GestureMappedAction.Back
+            else -> default
+        }
+    }
+
+    private fun gestureActionPrefValue(action: GestureMappedAction): String {
+        return when (action) {
+            GestureMappedAction.None -> "none"
+            GestureMappedAction.ShowMenu -> "menu"
+            GestureMappedAction.Back -> "back"
         }
     }
 }

@@ -9,7 +9,31 @@ data class AppSettings(
     val performance: PerformanceSettings = PerformanceSettings(),
     val display: DisplaySettings = DisplaySettings(),
     val network: NetworkSettings = NetworkSettings(),
+    val gestures: GestureSettings = GestureSettings(),
 )
+
+@Serializable
+data class GestureSettings(
+    val enabled: Boolean = true,
+    val sensitivity: Int = 55,
+    val hapticFeedback: Boolean = true,
+    val visualFeedback: Boolean = true,
+    val threeFingerSwipeDown: GestureMappedAction = GestureMappedAction.ShowMenu,
+    val twoFingerLongPress: GestureMappedAction = GestureMappedAction.Back,
+    val edgeSwipe: GestureMappedAction = GestureMappedAction.None,
+)
+
+@Serializable
+enum class GestureMappedAction {
+    @SerialName("none")
+    None,
+
+    @SerialName("menu")
+    ShowMenu,
+
+    @SerialName("back")
+    Back,
+}
 
 @Serializable
 data class VideoSettings(

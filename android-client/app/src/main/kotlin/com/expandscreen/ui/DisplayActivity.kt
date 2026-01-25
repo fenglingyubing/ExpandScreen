@@ -7,6 +7,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -48,19 +50,22 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expandscreen.R
+import com.expandscreen.core.input.AdvancedGestureProcessor
 import com.expandscreen.core.input.TouchProcessor
 import com.expandscreen.core.network.ConnectionState
 import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.performance.PerformanceMode
 import com.expandscreen.core.renderer.GLRenderer
+import com.expandscreen.data.repository.GestureMappedAction
 import com.expandscreen.data.repository.PerformancePreset
 import com.expandscreen.data.repository.SettingsRepository
 import com.expandscreen.service.DisplayService
@@ -135,6 +140,15 @@ class DisplayActivity : ComponentActivity() {
             videoWidthPxProvider = { uiState.value.videoWidth },
             videoHeightPxProvider = { uiState.value.videoHeight },
             minMoveIntervalMsProvider = { uiState.value.performanceMode.touchMinMoveIntervalMs },
+        )
+    }
+
+    private val advancedGestureProcessor: AdvancedGestureProcessor by lazy {
+        AdvancedGestureProcessor(
+            settingsProvider = { settingsRepository.settings.value.gestures },
+            viewWidthPxProvider = { glSurfaceView?.width ?: 0 },
+            viewHeightPxProvider = { glSurfaceView?.height ?: 0 },
+            densityProvider = { resources.displayMetrics.density },
         )
     }
 
@@ -382,6 +396,14 @@ class DisplayActivity : ComponentActivity() {
     private fun handleMotionEvent(event: MotionEvent) {
         if (uiState.value.showMenu) return
 
+        val gestureResult = advancedGestureProcessor.onMotionEvent(event)
+        if (gestureResult.cancelRemote) {
+            sendCancelTouchBatch(event)
+        }
+        gestureResult.feedback?.let { performGestureFeedback(it) }
+        gestureResult.action?.let { performGestureAction(it) }
+        if (gestureResult.consume) return
+
         val messages = touchProcessor.process(event)
         if (messages.isEmpty()) return
 
@@ -389,6 +411,66 @@ class DisplayActivity : ComponentActivity() {
         val ok = touchBatches.trySend(messages).isSuccess
         if (!ok && !isMoveOnly) {
             lifecycleScope.launch { touchBatches.send(messages) }
+        }
+    }
+
+    private fun sendCancelTouchBatch(event: MotionEvent) {
+        val cancel =
+            MotionEvent.obtain(event).also {
+                it.setAction(MotionEvent.ACTION_CANCEL)
+            }
+        val messages = touchProcessor.process(cancel)
+        cancel.recycle()
+        if (messages.isEmpty()) return
+
+        val ok = touchBatches.trySend(messages).isSuccess
+        if (!ok) {
+            lifecycleScope.launch { touchBatches.send(messages) }
+        }
+    }
+
+    private fun performGestureAction(action: GestureMappedAction) {
+        val gestureSettings = settingsRepository.settings.value.gestures
+        if (gestureSettings.hapticFeedback) {
+            ContextCompat.getSystemService(this, Vibrator::class.java)
+                ?.vibrate(VibrationEffect.createOneShot(28L, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+
+        if (gestureSettings.visualFeedback) {
+            val label =
+                when (action) {
+                    GestureMappedAction.ShowMenu -> getString(R.string.pref_gesture_action_menu)
+                    GestureMappedAction.Back -> getString(R.string.pref_gesture_action_back)
+                    GestureMappedAction.None -> null
+                }
+            if (!label.isNullOrBlank()) {
+                uiState.update { it.copy(gestureToast = label) }
+            }
+        }
+
+        when (action) {
+            GestureMappedAction.ShowMenu -> uiState.update { it.copy(showMenu = true) }
+            GestureMappedAction.Back -> onBackPressedDispatcher.onBackPressed()
+            GestureMappedAction.None -> Unit
+        }
+    }
+
+    private fun performGestureFeedback(feedback: AdvancedGestureProcessor.Feedback) {
+        val gestureSettings = settingsRepository.settings.value.gestures
+        if (!gestureSettings.visualFeedback && !gestureSettings.hapticFeedback) return
+
+        if (gestureSettings.hapticFeedback) {
+            ContextCompat.getSystemService(this, Vibrator::class.java)
+                ?.vibrate(VibrationEffect.createOneShot(18L, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+
+        if (gestureSettings.visualFeedback) {
+            val label =
+                when (feedback) {
+                    AdvancedGestureProcessor.Feedback.Zoom -> getString(R.string.gesture_feedback_zoom)
+                    AdvancedGestureProcessor.Feedback.Rotate -> getString(R.string.gesture_feedback_rotate)
+                }
+            uiState.update { it.copy(gestureToast = label) }
         }
     }
 
@@ -418,6 +500,7 @@ private data class DisplayUiState(
     val showHud: Boolean = true,
     val showMenu: Boolean = false,
     val allowRotation: Boolean = false,
+    val gestureToast: String? = null,
 )
 
 @Composable
@@ -441,6 +524,13 @@ private fun DisplayScreen(
         showRotationToast.value = true
         delay(900)
         showRotationToast.value = false
+    }
+
+    androidx.compose.runtime.LaunchedEffect(state.gestureToast) {
+        if (!state.gestureToast.isNullOrBlank()) {
+            delay(650)
+            uiState.update { it.copy(gestureToast = null) }
+        }
     }
 
     val hudBrush =
@@ -493,6 +583,18 @@ private fun DisplayScreen(
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp),
                 brush = hudBrush,
                 allowRotation = state.allowRotation,
+            )
+        }
+
+        AnimatedVisibility(
+            visible = !state.gestureToast.isNullOrBlank() && !state.showMenu,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            GestureToast(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp),
+                brush = hudBrush,
+                text = requireNotNull(state.gestureToast),
             )
         }
 
@@ -572,7 +674,7 @@ private fun DisplayLoadingOverlay(
             color = Color(0xFFE9F2FF),
         )
         Text(
-            text = "Tip: double-tap or long-press to open menu",
+            text = "Tip: double-tap, long-press, or 3-finger swipe down for menu",
             style = MaterialTheme.typography.bodyMedium,
             color = Color(0xFFB8C7D9),
             fontFamily = FontFamily.Monospace,
@@ -596,6 +698,25 @@ private fun RotationToast(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         style = MaterialTheme.typography.labelLarge,
         color = Color(0xFFB9FFEA),
+        fontFamily = FontFamily.Monospace,
+    )
+}
+
+@Composable
+private fun GestureToast(
+    modifier: Modifier,
+    brush: Brush,
+    text: String,
+) {
+    Text(
+        text = text,
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(brush)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelLarge,
+        color = Color(0xFFE9F2FF),
         fontFamily = FontFamily.Monospace,
     )
 }

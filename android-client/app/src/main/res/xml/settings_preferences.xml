@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
         android:title="@string/pref_category_video">
@@ -98,6 +99,61 @@
             android:key="pref_network_auto_reconnect"
             android:title="@string/pref_network_auto_reconnect_title"
             android:summary="@string/pref_network_auto_reconnect_summary"
+            android:defaultValue="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/pref_category_gestures">
+
+        <SwitchPreferenceCompat
+            android:key="pref_gestures_enabled"
+            android:title="@string/pref_gestures_enabled_title"
+            android:summary="@string/pref_gestures_enabled_summary"
+            android:defaultValue="true" />
+
+        <androidx.preference.SeekBarPreference
+            android:key="pref_gestures_sensitivity"
+            android:title="@string/pref_gestures_sensitivity_title"
+            android:summary="@string/pref_gestures_sensitivity_summary"
+            android:defaultValue="55"
+            android:min="0"
+            android:max="100"
+            app:showSeekBarValue="true" />
+
+        <ListPreference
+            android:key="pref_gestures_three_finger_swipe_down"
+            android:title="@string/pref_gestures_three_finger_swipe_down_title"
+            android:summary="@string/pref_gestures_three_finger_swipe_down_summary"
+            android:entries="@array/pref_gesture_action_entries"
+            android:entryValues="@array/pref_gesture_action_values"
+            android:defaultValue="menu" />
+
+        <ListPreference
+            android:key="pref_gestures_two_finger_long_press"
+            android:title="@string/pref_gestures_two_finger_long_press_title"
+            android:summary="@string/pref_gestures_two_finger_long_press_summary"
+            android:entries="@array/pref_gesture_action_entries"
+            android:entryValues="@array/pref_gesture_action_values"
+            android:defaultValue="back" />
+
+        <ListPreference
+            android:key="pref_gestures_edge_swipe"
+            android:title="@string/pref_gestures_edge_swipe_title"
+            android:summary="@string/pref_gestures_edge_swipe_summary"
+            android:entries="@array/pref_gesture_action_entries"
+            android:entryValues="@array/pref_gesture_action_values"
+            android:defaultValue="none" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_gestures_haptic_feedback"
+            android:title="@string/pref_gestures_haptic_feedback_title"
+            android:summary="@string/pref_gestures_haptic_feedback_summary"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_gestures_visual_feedback"
+            android:title="@string/pref_gestures_visual_feedback_title"
+            android:summary="@string/pref_gestures_visual_feedback_summary"
             android:defaultValue="true" />
     </PreferenceCategory>
 

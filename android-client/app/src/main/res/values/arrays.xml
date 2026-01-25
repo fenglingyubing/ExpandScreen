@@ -67,4 +67,15 @@
         <item>wifi</item>
         <item>usb</item>
     </string-array>
+
+    <string-array name="pref_gesture_action_entries">
+        <item>@string/pref_gesture_action_none</item>
+        <item>@string/pref_gesture_action_menu</item>
+        <item>@string/pref_gesture_action_back</item>
+    </string-array>
+    <string-array name="pref_gesture_action_values">
+        <item>none</item>
+        <item>menu</item>
+        <item>back</item>
+    </string-array>
 </resources>

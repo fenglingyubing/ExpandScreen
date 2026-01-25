@@ -55,6 +55,7 @@
     <string name="pref_category_performance">Performance</string>
     <string name="pref_category_display">Display</string>
     <string name="pref_category_network">Network</string>
+    <string name="pref_category_gestures">Gestures</string>
     <string name="pref_category_config">Config</string>
     <string name="pref_category_about">About</string>
 
@@ -112,6 +113,31 @@
     <string name="pref_network_auto_reconnect_title">Auto reconnect</string>
     <string name="pref_network_auto_reconnect_summary">Reconnect automatically after WiFi disconnect</string>
 
+    <string name="pref_gestures_enabled_title">Advanced gestures</string>
+    <string name="pref_gestures_enabled_summary">Use multi-finger gestures for quick actions</string>
+
+    <string name="pref_gestures_sensitivity_title">Sensitivity</string>
+    <string name="pref_gestures_sensitivity_summary">Adjust thresholds for gesture recognition</string>
+
+    <string name="pref_gestures_three_finger_swipe_down_title">3-finger swipe down</string>
+    <string name="pref_gestures_three_finger_swipe_down_summary">Action when swiping down with three fingers</string>
+
+    <string name="pref_gestures_two_finger_long_press_title">2-finger long press</string>
+    <string name="pref_gestures_two_finger_long_press_summary">Action when holding two fingers without moving</string>
+
+    <string name="pref_gestures_edge_swipe_title">Edge swipe</string>
+    <string name="pref_gestures_edge_swipe_summary">Action when swiping from a screen edge</string>
+
+    <string name="pref_gestures_haptic_feedback_title">Haptic feedback</string>
+    <string name="pref_gestures_haptic_feedback_summary">Vibrate when a gesture is recognized</string>
+
+    <string name="pref_gestures_visual_feedback_title">Visual feedback</string>
+    <string name="pref_gestures_visual_feedback_summary">Show a hint when a gesture is recognized</string>
+
+    <string name="pref_gesture_action_none">None</string>
+    <string name="pref_gesture_action_menu">Show menu</string>
+    <string name="pref_gesture_action_back">Back</string>
+
     <string name="pref_config_export_title">Export configuration</string>
     <string name="pref_config_export_summary">Save settings as JSON</string>
     <string name="pref_config_import_title">Import configuration</string>
@@ -141,4 +167,7 @@
     <!-- About -->
     <string name="version">Version %s</string>
     <string name="licenses">Open Source Licenses</string>
+
+    <string name="gesture_feedback_zoom">Zoom</string>
+    <string name="gesture_feedback_rotate">Rotate</string>
 </resources>

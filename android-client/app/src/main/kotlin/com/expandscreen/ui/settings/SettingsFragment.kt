@@ -80,6 +80,12 @@ class SettingsFragment : PreferenceFragmentCompat() {
             ListPreference.SimpleSummaryProvider.getInstance()
         findPreference<ListPreference>("pref_network_preferred_connection")?.summaryProvider =
             ListPreference.SimpleSummaryProvider.getInstance()
+        findPreference<ListPreference>("pref_gestures_three_finger_swipe_down")?.summaryProvider =
+            ListPreference.SimpleSummaryProvider.getInstance()
+        findPreference<ListPreference>("pref_gestures_two_finger_long_press")?.summaryProvider =
+            ListPreference.SimpleSummaryProvider.getInstance()
+        findPreference<ListPreference>("pref_gestures_edge_swipe")?.summaryProvider =
+            ListPreference.SimpleSummaryProvider.getInstance()
 
         findPreference<Preference>("pref_about_version")?.summary =
             "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) • ${BuildConfig.BUILD_TYPE}"

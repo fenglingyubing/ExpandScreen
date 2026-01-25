@@ -42,5 +42,13 @@ interface SettingsRepository {
 
         const val NETWORK_PREFERRED_CONNECTION = "pref_network_preferred_connection"
         const val NETWORK_AUTO_RECONNECT = "pref_network_auto_reconnect"
+
+        const val GESTURES_ENABLED = "pref_gestures_enabled"
+        const val GESTURES_SENSITIVITY = "pref_gestures_sensitivity"
+        const val GESTURES_HAPTIC = "pref_gestures_haptic_feedback"
+        const val GESTURES_VISUAL = "pref_gestures_visual_feedback"
+        const val GESTURES_THREE_FINGER_SWIPE_DOWN = "pref_gestures_three_finger_swipe_down"
+        const val GESTURES_TWO_FINGER_LONG_PRESS = "pref_gestures_two_finger_long_press"
+        const val GESTURES_EDGE_SWIPE = "pref_gestures_edge_swipe"
     }
 }

@@ -43,6 +43,12 @@ namespace ExpandScreen.UI.ViewModels
 
         private PerformanceMode _performanceMode;
         private int _encodingThreadCount;
+
+        private bool _hotkeysEnabled;
+        private string _hotkeyToggleMainWindow = string.Empty;
+        private string _hotkeyConnectDisconnect = string.Empty;
+        private string _hotkeyNextDevice = string.Empty;
+        private string _hotkeyTogglePerformanceMode = string.Empty;
         private string _configPath = string.Empty;
         private LoggingConfig _logging = new();
 
@@ -236,6 +242,36 @@ namespace ExpandScreen.UI.ViewModels
             set => SetProperty(ref _encodingThreadCount, value);
         }
 
+        public bool HotkeysEnabled
+        {
+            get => _hotkeysEnabled;
+            set => SetProperty(ref _hotkeysEnabled, value);
+        }
+
+        public string HotkeyToggleMainWindow
+        {
+            get => _hotkeyToggleMainWindow;
+            set => SetProperty(ref _hotkeyToggleMainWindow, value);
+        }
+
+        public string HotkeyConnectDisconnect
+        {
+            get => _hotkeyConnectDisconnect;
+            set => SetProperty(ref _hotkeyConnectDisconnect, value);
+        }
+
+        public string HotkeyNextDevice
+        {
+            get => _hotkeyNextDevice;
+            set => SetProperty(ref _hotkeyNextDevice, value);
+        }
+
+        public string HotkeyTogglePerformanceMode
+        {
+            get => _hotkeyTogglePerformanceMode;
+            set => SetProperty(ref _hotkeyTogglePerformanceMode, value);
+        }
+
         public string VideoSummary => $"{Resolution.DisplayName} • {FrameRate}fps • {BitrateMbps}Mbps • {Encoder}";
         public string AudioSummary => AudioEnabled
             ? $"{AudioCodec} • {AudioBitrateKbps}kbps • {AudioFrameDurationMs}ms"
@@ -261,6 +297,12 @@ namespace ExpandScreen.UI.ViewModels
             PerformanceMode = config.Performance.Mode;
             EncodingThreadCount = config.Performance.EncodingThreadCount;
             _logging = config.Logging ?? new LoggingConfig();
+
+            HotkeysEnabled = config.Hotkeys.Enabled;
+            HotkeyToggleMainWindow = config.Hotkeys.ToggleMainWindow ?? string.Empty;
+            HotkeyConnectDisconnect = config.Hotkeys.ConnectDisconnect ?? string.Empty;
+            HotkeyNextDevice = config.Hotkeys.NextDevice ?? string.Empty;
+            HotkeyTogglePerformanceMode = config.Hotkeys.TogglePerformanceMode ?? string.Empty;
 
             AudioEnabled = config.Audio.Enabled;
             AudioCodec = config.Audio.Codec;
@@ -309,6 +351,14 @@ namespace ExpandScreen.UI.ViewModels
                     Mode = PerformanceMode,
                     EncodingThreadCount = EncodingThreadCount
                 },
+                Hotkeys = new HotkeysConfig
+                {
+                    Enabled = HotkeysEnabled,
+                    ToggleMainWindow = HotkeyToggleMainWindow ?? string.Empty,
+                    ConnectDisconnect = HotkeyConnectDisconnect ?? string.Empty,
+                    NextDevice = HotkeyNextDevice ?? string.Empty,
+                    TogglePerformanceMode = HotkeyTogglePerformanceMode ?? string.Empty
+                },
                 Logging = new LoggingConfig
                 {
                     MinimumLevel = _logging.MinimumLevel,
@@ -323,6 +373,16 @@ namespace ExpandScreen.UI.ViewModels
         public void RestoreDefaults()
         {
             LoadFrom(AppConfig.CreateDefault());
+        }
+
+        public void RestoreDefaultHotkeys()
+        {
+            var defaults = AppConfig.CreateDefault().Hotkeys;
+            HotkeysEnabled = defaults.Enabled;
+            HotkeyToggleMainWindow = defaults.ToggleMainWindow;
+            HotkeyConnectDisconnect = defaults.ConnectDisconnect;
+            HotkeyNextDevice = defaults.NextDevice;
+            HotkeyTogglePerformanceMode = defaults.TogglePerformanceMode;
         }
     }
 }

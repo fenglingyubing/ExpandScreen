@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.ComponentModel;
 using ExpandScreen.UI.ViewModels;
+using System;
 
 namespace ExpandScreen.UI
 {
@@ -10,6 +11,16 @@ namespace ExpandScreen.UI
         public MainWindow()
         {
             InitializeComponent();
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            if (Application.Current is App app)
+            {
+                app.InitializeHotkeys(this);
+            }
         }
 
         protected override void OnClosing(CancelEventArgs e)

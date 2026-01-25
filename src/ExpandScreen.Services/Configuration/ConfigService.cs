@@ -270,6 +270,7 @@ namespace ExpandScreen.Services.Configuration
             config.Audio ??= new AudioConfig();
             config.Network ??= new NetworkConfig();
             config.Performance ??= new PerformanceConfig();
+            config.Hotkeys ??= new HotkeysConfig();
             config.Logging ??= new LoggingConfig();
 
             if (config.Video.Width < 320)
@@ -356,6 +357,12 @@ namespace ExpandScreen.Services.Configuration
                 warnings.Add("performance.encodingThreadCount out of range; clamped to 0-64.");
                 config.Performance.EncodingThreadCount = Math.Clamp(config.Performance.EncodingThreadCount, 0, 64);
             }
+
+            // Hotkeys
+            config.Hotkeys.ToggleMainWindow ??= new HotkeysConfig().ToggleMainWindow;
+            config.Hotkeys.ConnectDisconnect ??= new HotkeysConfig().ConnectDisconnect;
+            config.Hotkeys.NextDevice ??= new HotkeysConfig().NextDevice;
+            config.Hotkeys.TogglePerformanceMode ??= new HotkeysConfig().TogglePerformanceMode;
 
             // Logging
             config.Logging.MinimumLevel ??= "Information";

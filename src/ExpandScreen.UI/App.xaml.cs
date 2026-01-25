@@ -1,6 +1,7 @@
 using System.Windows;
 using ExpandScreen.Services.Configuration;
 using ExpandScreen.UI.Services;
+using ExpandScreen.UI.ViewModels;
 using Serilog;
 
 namespace ExpandScreen.UI
@@ -8,6 +9,7 @@ namespace ExpandScreen.UI
     public partial class App : System.Windows.Application
     {
         private TrayIconService? _trayIconService;
+        private GlobalHotkeyService? _hotkeyService;
         public bool IsShuttingDown { get; private set; }
         public ConfigService ConfigService { get; } = new();
 
@@ -32,6 +34,15 @@ namespace ExpandScreen.UI
                 SerilogConfigurator.Apply(args.Config.Logging);
                 ThemeManager.ApplyTheme(args.Config.General.Theme);
                 AutoStartService.Apply(args.Config.General.AutoStart);
+
+                if (_hotkeyService != null)
+                {
+                    var warnings = _hotkeyService.ApplyConfig(args.Config);
+                    if (warnings.Count > 0)
+                    {
+                        Log.Warning("Hotkeys applied with {WarningCount} warning(s): {Warnings}", warnings.Count, string.Join("; ", warnings));
+                    }
+                }
             };
             ConfigService.StartWatching();
 
@@ -39,8 +50,76 @@ namespace ExpandScreen.UI
             _trayIconService = new TrayIconService();
         }
 
+        internal void InitializeHotkeys(Window mainWindow)
+        {
+            if (_hotkeyService != null)
+            {
+                return;
+            }
+
+            _hotkeyService = new GlobalHotkeyService(mainWindow);
+            var warnings = _hotkeyService.ApplyConfig(ConfigService.GetSnapshot());
+            if (warnings.Count > 0)
+            {
+                Log.Warning("Hotkeys applied with {WarningCount} warning(s): {Warnings}", warnings.Count, string.Join("; ", warnings));
+            }
+            _hotkeyService.HotkeyPressed += (_, action) => Dispatcher.InvokeAsync(() => DispatchHotkeyAction(action));
+        }
+
+        private async Task DispatchHotkeyAction(HotkeyAction action)
+        {
+            var window = MainWindow;
+            var viewModel = window?.DataContext as MainViewModel;
+
+            switch (action)
+            {
+                case HotkeyAction.ToggleMainWindow:
+                    ToggleMainWindowVisibility();
+                    break;
+
+                case HotkeyAction.ConnectDisconnect:
+                    viewModel?.ToggleConnectDisconnectSelected();
+                    break;
+
+                case HotkeyAction.NextDevice:
+                    viewModel?.SelectNextDevice();
+                    break;
+
+                case HotkeyAction.TogglePerformanceMode:
+                    if (viewModel != null)
+                    {
+                        await viewModel.CyclePerformanceModeAsync();
+                    }
+                    break;
+            }
+        }
+
+        private void ToggleMainWindowVisibility()
+        {
+            var window = MainWindow;
+            if (window == null)
+            {
+                return;
+            }
+
+            if (window.IsVisible && window.WindowState != WindowState.Minimized && window.IsActive)
+            {
+                window.Hide();
+                return;
+            }
+
+            window.Show();
+            if (window.WindowState == WindowState.Minimized)
+            {
+                window.WindowState = WindowState.Normal;
+            }
+
+            window.Activate();
+        }
+
         protected override void OnExit(ExitEventArgs e)
         {
+            _hotkeyService?.Dispose();
             _trayIconService?.Dispose();
             ConfigService.Dispose();
             Log.Information("ExpandScreen 退出");

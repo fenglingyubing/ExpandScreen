@@ -5,6 +5,7 @@ using ExpandScreen.Services.Configuration;
 using ExpandScreen.Services.Diagnostics;
 using ExpandScreen.UI.Services;
 using ExpandScreen.UI.ViewModels;
+using ExpandScreen.Utils.Hotkeys;
 using ExpandScreen.Utils;
 
 namespace ExpandScreen.UI.Views
@@ -59,6 +60,149 @@ namespace ExpandScreen.UI.Views
             {
                 _viewModel.RestoreDefaults();
             }
+        }
+
+        private void RestoreHotkeys_Click(object sender, RoutedEventArgs e)
+        {
+            var result = System.Windows.MessageBox.Show(
+                "确定要恢复快捷键为默认值吗？",
+                "恢复默认快捷键",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _viewModel.RestoreDefaultHotkeys();
+            }
+        }
+
+        private void RecordHotkey_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement element || element.Tag is not string tag)
+            {
+                return;
+            }
+
+            var dialog = new HotkeyCaptureWindow
+            {
+                Owner = this
+            };
+
+            bool? ok = dialog.ShowDialog();
+            if (ok != true)
+            {
+                return;
+            }
+
+            string capturedRaw = dialog.CapturedText?.Trim() ?? string.Empty;
+            if (!HotkeyChord.TryParse(capturedRaw, out var chord))
+            {
+                System.Windows.MessageBox.Show("快捷键格式无效。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            string captured = chord.ToString();
+            if (chord.Modifiers == HotkeyModifiers.None && !chord.IsEmpty)
+            {
+                System.Windows.MessageBox.Show("建议至少包含一个修饰键（Ctrl/Alt/Shift）。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (TryGetConflict(tag, captured, out string conflictTag))
+            {
+                var result = System.Windows.MessageBox.Show(
+                    $"该快捷键与“{GetActionDisplayName(conflictTag)}”冲突，是否覆盖？\n（覆盖后会清除冲突项）",
+                    "快捷键冲突",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                SetHotkeyValue(conflictTag, string.Empty);
+            }
+
+            SetHotkeyValue(tag, captured);
+        }
+
+        private void ClearHotkey_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement element || element.Tag is not string tag)
+            {
+                return;
+            }
+
+            SetHotkeyValue(tag, string.Empty);
+        }
+
+        private bool TryGetConflict(string tag, string captured, out string conflictTag)
+        {
+            conflictTag = string.Empty;
+            if (string.IsNullOrWhiteSpace(captured))
+            {
+                return false;
+            }
+
+            foreach (var other in new[] { "ToggleMainWindow", "ConnectDisconnect", "NextDevice", "TogglePerformanceMode" })
+            {
+                if (string.Equals(other, tag, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (string.Equals(GetHotkeyValue(other), captured, StringComparison.OrdinalIgnoreCase))
+                {
+                    conflictTag = other;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private string GetHotkeyValue(string tag)
+        {
+            return tag switch
+            {
+                "ToggleMainWindow" => _viewModel.HotkeyToggleMainWindow,
+                "ConnectDisconnect" => _viewModel.HotkeyConnectDisconnect,
+                "NextDevice" => _viewModel.HotkeyNextDevice,
+                "TogglePerformanceMode" => _viewModel.HotkeyTogglePerformanceMode,
+                _ => string.Empty
+            };
+        }
+
+        private void SetHotkeyValue(string tag, string value)
+        {
+            switch (tag)
+            {
+                case "ToggleMainWindow":
+                    _viewModel.HotkeyToggleMainWindow = value;
+                    break;
+                case "ConnectDisconnect":
+                    _viewModel.HotkeyConnectDisconnect = value;
+                    break;
+                case "NextDevice":
+                    _viewModel.HotkeyNextDevice = value;
+                    break;
+                case "TogglePerformanceMode":
+                    _viewModel.HotkeyTogglePerformanceMode = value;
+                    break;
+            }
+        }
+
+        private static string GetActionDisplayName(string tag)
+        {
+            return tag switch
+            {
+                "ToggleMainWindow" => "显示/隐藏主窗口",
+                "ConnectDisconnect" => "连接/断开（当前设备）",
+                "NextDevice" => "切换设备（下一个）",
+                "TogglePerformanceMode" => "切换性能模式",
+                _ => "未知操作"
+            };
         }
 
         private async void SaveSettings_Click(object sender, RoutedEventArgs e)

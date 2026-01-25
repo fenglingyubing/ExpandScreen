@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
+using ExpandScreen.Core.Encode;
 using ExpandScreen.Services.Configuration;
 using ExpandScreen.Services.Connection;
 using ExpandScreen.UI.Services;
@@ -270,8 +271,95 @@ namespace ExpandScreen.UI.ViewModels
                 MaxHighQualitySessions = 1,
                 PrimaryProfile = primary,
                 DegradedProfile = degraded,
-                EnableVirtualDisplays = true
+                EnableVirtualDisplays = true,
+                EncoderFactory = profile =>
+                {
+                    var snapshot = app.ConfigService.GetSnapshot();
+                    var encoderType = snapshot.Video.Encoder switch
+                    {
+                        VideoEncoderPreference.Nvenc => EncoderType.NVENC,
+                        VideoEncoderPreference.QuickSync => EncoderType.QuickSync,
+                        VideoEncoderPreference.FFmpeg => EncoderType.FFmpeg,
+                        _ => EncoderType.Auto
+                    };
+
+                    var encoderConfig = snapshot.Performance.Mode switch
+                    {
+                        PerformanceMode.Quality => VideoEncoderConfig.CreateHighQuality(profile.Width, profile.Height, profile.RefreshRate),
+                        PerformanceMode.LowLatency => VideoEncoderConfig.CreateLowLatency(profile.Width, profile.Height, profile.RefreshRate),
+                        _ => VideoEncoderFactory.GetRecommendedConfig(profile.Width, profile.Height, profile.RefreshRate)
+                    };
+
+                    encoderConfig.Bitrate = profile.BitrateBps;
+                    encoderConfig.ThreadCount = snapshot.Performance.EncodingThreadCount;
+
+                    return VideoEncoderFactory.CreateEncoder(encoderType, encoderConfig);
+                }
             };
+        }
+
+        public void ToggleConnectDisconnectSelected()
+        {
+            var device = SelectedDevice ?? Devices.FirstOrDefault();
+            if (device == null)
+            {
+                StatusText = "未发现设备";
+                return;
+            }
+
+            if (device.Status is DeviceStatus.Disconnected or DeviceStatus.Error)
+            {
+                if (ConnectDeviceCommand.CanExecute(device))
+                {
+                    ConnectDeviceCommand.Execute(device);
+                }
+
+                return;
+            }
+
+            if (DisconnectDeviceCommand.CanExecute(device))
+            {
+                DisconnectDeviceCommand.Execute(device);
+            }
+        }
+
+        public void SelectNextDevice()
+        {
+            if (Devices.Count == 0)
+            {
+                StatusText = "未发现设备";
+                return;
+            }
+
+            if (SelectedDevice == null)
+            {
+                SelectedDevice = Devices[0];
+                return;
+            }
+
+            int index = Devices.IndexOf(SelectedDevice);
+            int nextIndex = index < 0 ? 0 : (index + 1) % Devices.Count;
+            SelectedDevice = Devices[nextIndex];
+        }
+
+        public async Task CyclePerformanceModeAsync()
+        {
+            if (Application.Current is not App app)
+            {
+                return;
+            }
+
+            var snapshot = app.ConfigService.GetSnapshot();
+            snapshot.Performance.Mode = snapshot.Performance.Mode switch
+            {
+                PerformanceMode.Balanced => PerformanceMode.LowLatency,
+                PerformanceMode.LowLatency => PerformanceMode.Quality,
+                _ => PerformanceMode.Balanced
+            };
+
+            await app.ConfigService.SaveAsync(snapshot);
+
+            StatusText = $"性能模式：{snapshot.Performance.Mode switch { PerformanceMode.Balanced => \"均衡\", PerformanceMode.LowLatency => \"低延迟\", _ => \"高质量\" }}";
         }
 
         private void UpsertDevice(AndroidDevice device)

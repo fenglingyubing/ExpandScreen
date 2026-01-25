@@ -456,6 +456,120 @@
                         </ScrollViewer>
                     </TabItem>
 
+                    <TabItem Header="快捷键">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <Border Style="{DynamicResource CardStyle}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="全局快捷键"
+                                               FontFamily="{DynamicResource UIFont}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               Margin="0,0,0,8"/>
+
+                                    <TextBlock Text="即使主窗口隐藏到托盘也可触发；若注册失败，通常是被系统或其他软件占用。"
+                                               Style="{StaticResource SettingsLabelStyle}"
+                                               Margin="0,0,0,18"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="启用全局快捷键" Style="{StaticResource SettingsValueStyle}"/>
+                                            <TextBlock Text="关闭后将不注册 RegisterHotKey。"
+                                                       Style="{StaticResource SettingsLabelStyle}"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+
+                                        <CheckBox Grid.Column="1"
+                                                  VerticalAlignment="Center"
+                                                  IsChecked="{Binding HotkeysEnabled}"/>
+                                    </Grid>
+
+                                    <Border Background="{DynamicResource BackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="18"
+                                            Margin="0,20,0,0">
+                                        <StackPanel>
+                                            <DockPanel Margin="0,0,0,10">
+                                                <TextBlock Text="快捷键列表"
+                                                           FontFamily="{DynamicResource UIFont}"
+                                                           FontSize="14"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <Button DockPanel.Dock="Right"
+                                                        Style="{DynamicResource SecondaryButtonStyle}"
+                                                        Content="恢复默认快捷键"
+                                                        Padding="12,6"
+                                                        Click="RestoreHotkeys_Click"/>
+                                            </DockPanel>
+
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="280"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="显示/隐藏主窗口" Style="{StaticResource SettingsLabelStyle}" VerticalAlignment="Center"/>
+                                                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource SettingsTextBoxStyle}" Margin="0,0,12,0"
+                                                         IsReadOnly="True"
+                                                         Text="{Binding HotkeyToggleMainWindow}"/>
+                                                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="录制" Padding="10,6" Margin="0,0,8,0" Tag="ToggleMainWindow" Click="RecordHotkey_Click"/>
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="清除" Padding="10,6" Tag="ToggleMainWindow" Click="ClearHotkey_Click"/>
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Text="连接/断开（当前设备）" Style="{StaticResource SettingsLabelStyle}" Margin="0,12,0,0" VerticalAlignment="Center"/>
+                                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource SettingsTextBoxStyle}" Margin="0,12,12,0"
+                                                         IsReadOnly="True"
+                                                         Text="{Binding HotkeyConnectDisconnect}"/>
+                                                <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Margin="0,12,0,0">
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="录制" Padding="10,6" Margin="0,0,8,0" Tag="ConnectDisconnect" Click="RecordHotkey_Click"/>
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="清除" Padding="10,6" Tag="ConnectDisconnect" Click="ClearHotkey_Click"/>
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="2" Grid.Column="0" Text="切换设备（下一个）" Style="{StaticResource SettingsLabelStyle}" Margin="0,12,0,0" VerticalAlignment="Center"/>
+                                                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsTextBoxStyle}" Margin="0,12,12,0"
+                                                         IsReadOnly="True"
+                                                         Text="{Binding HotkeyNextDevice}"/>
+                                                <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Margin="0,12,0,0">
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="录制" Padding="10,6" Margin="0,0,8,0" Tag="NextDevice" Click="RecordHotkey_Click"/>
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="清除" Padding="10,6" Tag="NextDevice" Click="ClearHotkey_Click"/>
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="3" Grid.Column="0" Text="切换性能模式" Style="{StaticResource SettingsLabelStyle}" Margin="0,12,0,0" VerticalAlignment="Center"/>
+                                                <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource SettingsTextBoxStyle}" Margin="0,12,12,0"
+                                                         IsReadOnly="True"
+                                                         Text="{Binding HotkeyTogglePerformanceMode}"/>
+                                                <StackPanel Grid.Row="3" Grid.Column="2" Orientation="Horizontal" Margin="0,12,0,0">
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="录制" Padding="10,6" Margin="0,0,8,0" Tag="TogglePerformanceMode" Click="RecordHotkey_Click"/>
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}" Content="清除" Padding="10,6" Tag="TogglePerformanceMode" Click="ClearHotkey_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Text="提示：建议至少包含一个修饰键（Ctrl/Alt/Shift），避免误触。"
+                                                       Style="{StaticResource SettingsLabelStyle}"
+                                                       Margin="0,14,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </ScrollViewer>
+                    </TabItem>
+
                     <TabItem Header="关于">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <Border Style="{DynamicResource CardStyle}" Margin="0,16,0,0">

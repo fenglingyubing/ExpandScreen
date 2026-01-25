@@ -35,6 +35,7 @@ namespace ExpandScreen.Services.Configuration
         public AudioConfig Audio { get; set; } = new();
         public NetworkConfig Network { get; set; } = new();
         public PerformanceConfig Performance { get; set; } = new();
+        public HotkeysConfig Hotkeys { get; set; } = new();
         public LoggingConfig Logging { get; set; } = new();
 
         public static AppConfig CreateDefault() => new();
@@ -78,6 +79,15 @@ namespace ExpandScreen.Services.Configuration
     {
         public PerformanceMode Mode { get; set; } = PerformanceMode.Balanced;
         public int EncodingThreadCount { get; set; } = 0;
+    }
+
+    public sealed class HotkeysConfig
+    {
+        public bool Enabled { get; set; } = true;
+        public string ToggleMainWindow { get; set; } = "Ctrl+Alt+H";
+        public string ConnectDisconnect { get; set; } = "Ctrl+Alt+C";
+        public string NextDevice { get; set; } = "Ctrl+Alt+Right";
+        public string TogglePerformanceMode { get; set; } = "Ctrl+Alt+P";
     }
 
     public sealed class LoggingConfig

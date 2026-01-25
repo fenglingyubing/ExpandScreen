@@ -736,7 +736,12 @@
                                                 Padding="14,6"
                                                 Click="ExportDiagnostics_Click"
                                                 Margin="0,0,12,0"/>
-                                        <TextBlock Text="（包含系统信息/配置/日志/性能快照）"
+                                        <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                Content="复制兼容性摘要"
+                                                Padding="14,6"
+                                                Click="CopyCompatibilitySummary_Click"
+                                                Margin="0,0,12,0"/>
+                                        <TextBlock Text="（包含系统信息/兼容性/配置/日志/性能快照）"
                                                    Style="{StaticResource SettingsLabelStyle}"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>

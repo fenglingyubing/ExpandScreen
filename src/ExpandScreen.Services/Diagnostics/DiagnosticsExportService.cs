@@ -43,6 +43,19 @@ namespace ExpandScreen.Services.Diagnostics
             };
             await AddJsonAsync(zip, "system-info.json", systemInfo, cancellationToken).ConfigureAwait(false);
 
+            // Compatibility info (best-effort)
+            try
+            {
+                var compat = CompatibilitySnapshotCollector.Collect();
+                await AddJsonAsync(zip, "compatibility-info.json", compat, cancellationToken).ConfigureAwait(false);
+                await AddTextAsync(zip, "compatibility-summary.txt", CompatibilitySnapshotCollector.BuildSummaryText(compat), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await AddTextAsync(zip, "compatibility-info.error.txt", ex.ToString(), cancellationToken).ConfigureAwait(false);
+            }
+
             // Config snapshot
             await AddJsonAsync(zip, "config.json", configSnapshot, cancellationToken).ConfigureAwait(false);
             await AddTextAsync(zip, "config-path.txt", configPath, cancellationToken).ConfigureAwait(false);
@@ -111,4 +124,3 @@ namespace ExpandScreen.Services.Diagnostics
         }
     }
 }
-

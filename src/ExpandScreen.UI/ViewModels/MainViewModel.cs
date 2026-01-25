@@ -418,7 +418,7 @@ namespace ExpandScreen.UI.ViewModels
 
             await app.ConfigService.SaveAsync(snapshot);
 
-            StatusText = $"性能模式：{snapshot.Performance.Mode switch { PerformanceMode.Balanced => \"均衡\", PerformanceMode.LowLatency => \"低延迟\", _ => \"高质量\" }}";
+            StatusText = $"性能模式：{snapshot.Performance.Mode switch { PerformanceMode.Balanced => "均衡", PerformanceMode.LowLatency => "低延迟", _ => "高质量" }}";
         }
 
         private void UpsertDevice(AndroidDevice device)

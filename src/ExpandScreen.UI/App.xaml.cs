@@ -23,7 +23,7 @@ namespace ExpandScreen.UI
             SerilogConfigurator.Apply(new LoggingConfig());
             Log.Information("ExpandScreen 启动");
 
-            ShutdownStarted += (_, _) => IsShuttingDown = true;
+            Dispatcher.ShutdownStarted += (_, _) => IsShuttingDown = true;
 
             // Load config + apply (theme, autostart, minimize-to-tray behavior via MainWindow)
             var config = ConfigService.LoadAsync().GetAwaiter().GetResult();

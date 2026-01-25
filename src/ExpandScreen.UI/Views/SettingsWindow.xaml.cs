@@ -280,6 +280,21 @@ namespace ExpandScreen.UI.Views
             }
         }
 
+        private void CopyCompatibilitySummary_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var compat = CompatibilitySnapshotCollector.Collect();
+                var text = CompatibilitySnapshotCollector.BuildSummaryText(compat);
+                Clipboard.SetText(text);
+                System.Windows.MessageBox.Show("兼容性摘要已复制到剪贴板。", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"复制失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             CancelAndClose();

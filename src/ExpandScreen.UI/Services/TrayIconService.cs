@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
-using Application = System.Windows.Application;
 
 namespace ExpandScreen.UI.Services
 {

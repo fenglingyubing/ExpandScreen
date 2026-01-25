@@ -271,7 +271,7 @@ namespace ExpandScreen.UI.ViewModels
                 double x = i * stepX;
                 double v = Math.Clamp(values[i] / max, 0, 1);
                 double y = (1 - v) * height;
-                points.Add(new Point(x, y));
+                points.Add(new System.Windows.Point(x, y));
             }
 
             return points;
@@ -414,4 +414,3 @@ namespace ExpandScreen.UI.ViewModels
         }
     }
 }
-

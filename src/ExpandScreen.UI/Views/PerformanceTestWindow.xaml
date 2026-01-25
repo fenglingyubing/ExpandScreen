@@ -144,9 +144,7 @@
 
             <!-- Content -->
             <Grid Grid.Row="1" Background="{DynamicResource BackgroundBrush}">
-                <Grid.Background>
-                    <VisualBrush Visual="{StaticResource GridPatternBrush}" Stretch="None"/>
-                </Grid.Background>
+                <Rectangle Fill="{StaticResource GridPatternBrush}" IsHitTestVisible="False"/>
 
                 <Grid Margin="18,16">
                     <Grid.ColumnDefinitions>
@@ -354,4 +352,3 @@
         </Grid>
     </Border>
 </Window>
-

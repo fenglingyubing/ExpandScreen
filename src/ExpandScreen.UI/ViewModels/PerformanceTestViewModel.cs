@@ -192,7 +192,7 @@ namespace ExpandScreen.UI.ViewModels
 
             try
             {
-                var dialog = new SaveFileDialog
+                var dialog = new Microsoft.Win32.SaveFileDialog
                 {
                     Title = "导出性能采样（JSON）",
                     Filter = "JSON (*.json)|*.json",
@@ -223,7 +223,7 @@ namespace ExpandScreen.UI.ViewModels
 
             try
             {
-                var dialog = new SaveFileDialog
+                var dialog = new Microsoft.Win32.SaveFileDialog
                 {
                     Title = "导出性能采样（CSV）",
                     Filter = "CSV (*.csv)|*.csv",
@@ -280,7 +280,7 @@ namespace ExpandScreen.UI.ViewModels
                 double x = i * stepX;
                 double v = Math.Clamp(values[i] / max, 0, 1);
                 double y = (1 - v) * height;
-                points.Add(new Point(x, y));
+                points.Add(new System.Windows.Point(x, y));
             }
 
             return points;
@@ -310,4 +310,3 @@ namespace ExpandScreen.UI.ViewModels
         }
     }
 }
-

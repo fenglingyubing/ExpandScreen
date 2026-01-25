@@ -198,9 +198,19 @@ namespace ExpandScreen.Services.Connection
         private async Task ReplaceCurrentSessionAsync(TcpClient client, CancellationToken cancellationToken)
         {
             Stream stream = client.GetStream();
+            string? expectedPairingCode = null;
             if (_enableTls)
             {
                 var certificate = _tlsCertificate ?? new TlsCertificateManager().GetOrCreateServerCertificate();
+                try
+                {
+                    expectedPairingCode = TlsPairingCode.Get6DigitCode(certificate);
+                }
+                catch
+                {
+                    expectedPairingCode = null;
+                }
+
                 var sslStream = new SslStream(stream, leaveInnerStreamOpen: false);
                 try
                 {
@@ -238,6 +248,14 @@ namespace ExpandScreen.Services.Connection
                     handshakeRequestHandler: request =>
                     {
                         HandshakeReceived?.Invoke(this, request);
+                        if (_enableTls && !string.IsNullOrWhiteSpace(expectedPairingCode))
+                        {
+                            if (!string.Equals(request.PairingCode?.Trim(), expectedPairingCode, StringComparison.Ordinal))
+                            {
+                                return Task.FromResult((Accept: false, ErrorMessage: (string?)"Invalid pairing code"));
+                            }
+                        }
+
                         if (request.ScreenWidth > 0 && request.ScreenHeight > 0)
                         {
                             _inputService?.UpdateRemoteScreenSize(request.ScreenWidth, request.ScreenHeight);

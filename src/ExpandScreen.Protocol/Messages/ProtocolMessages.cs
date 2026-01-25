@@ -10,6 +10,11 @@ namespace ExpandScreen.Protocol.Messages
         public string ClientVersion { get; set; } = "1.0.0";
         public int ScreenWidth { get; set; }
         public int ScreenHeight { get; set; }
+
+        /// <summary>
+        /// 可选的配对码（用于在启用 WiFi TLS 时进行轻量认证/测试）。
+        /// </summary>
+        public string? PairingCode { get; set; }
     }
 
     /// <summary>

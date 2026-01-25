@@ -295,6 +295,27 @@ namespace ExpandScreen.UI.Views
             }
         }
 
+        private void CopySecuritySummary_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current is not App app)
+            {
+                return;
+            }
+
+            try
+            {
+                var config = app.ConfigService.GetSnapshot();
+                var snap = SecuritySnapshotCollector.Collect(config, app.ConfigService.ConfigPath);
+                var text = SecuritySnapshotCollector.BuildSummaryText(snap);
+                Clipboard.SetText(text);
+                System.Windows.MessageBox.Show("安全摘要已复制到剪贴板。", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"复制失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             CancelAndClose();

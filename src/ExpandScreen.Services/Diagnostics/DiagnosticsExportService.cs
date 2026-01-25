@@ -56,6 +56,19 @@ namespace ExpandScreen.Services.Diagnostics
                 await AddTextAsync(zip, "compatibility-info.error.txt", ex.ToString(), cancellationToken).ConfigureAwait(false);
             }
 
+            // Security info (best-effort)
+            try
+            {
+                var security = SecuritySnapshotCollector.Collect(configSnapshot, configPath);
+                await AddJsonAsync(zip, "security-info.json", security, cancellationToken).ConfigureAwait(false);
+                await AddTextAsync(zip, "security-summary.txt", SecuritySnapshotCollector.BuildSummaryText(security), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await AddTextAsync(zip, "security-info.error.txt", ex.ToString(), cancellationToken).ConfigureAwait(false);
+            }
+
             // Config snapshot
             await AddJsonAsync(zip, "config.json", configSnapshot, cancellationToken).ConfigureAwait(false);
             await AddTextAsync(zip, "config-path.txt", configPath, cancellationToken).ConfigureAwait(false);

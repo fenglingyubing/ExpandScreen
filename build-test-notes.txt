@@ -622,3 +622,15 @@ Android：
 - .NET 8.0 SDK
 - Visual Studio 2022或VS Code
 - 相关NuGet包会自动恢复
+
+---
+
+任务5.1.4（TEST-004 安全测试）构建/测试（Windows）
+日期：2026-01-25
+
+.NET：
+- SDK：8.0.417
+- 构建：`dotnet build ExpandScreen.sln -c Release`
+  - 结果：成功（0 警告，0 错误）
+- 测试：`dotnet test ExpandScreen.sln -c Release`
+  - 结果：通过 47，跳过 9，失败 0（总计 56）

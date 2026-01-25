@@ -134,7 +134,8 @@ namespace ExpandScreen.IntegrationTests
                     var completed = await Task.WhenAny(serverErrorTcs.Task, Task.Delay(1000));
                     if (completed == serverErrorTcs.Task)
                     {
-                        throw new Xunit.Sdk.XunitException($"Client TLS failed: {ex.Message}\nServer error: {serverErrorTcs.Task.Result.GetBaseException().Message}");
+                        var serverError = await serverErrorTcs.Task;
+                        throw new Xunit.Sdk.XunitException($"Client TLS failed: {ex.Message}\nServer error: {serverError.GetBaseException().Message}");
                     }
                     throw;
                 }
@@ -147,12 +148,69 @@ namespace ExpandScreen.IntegrationTests
                     DeviceName = "Test Android",
                     ClientVersion = "1.0.0",
                     ScreenWidth = 1920,
-                    ScreenHeight = 1080
+                    ScreenHeight = 1080,
+                    PairingCode = TlsPairingCode.Get6DigitCode(cert)
                 };
 
                 bool ok = await clientSession.PerformHandshakeAsync(handshake).WaitAsync(TimeSpan.FromSeconds(3));
                 Assert.True(ok);
                 Assert.True(clientSession.IsHandshakeCompleted);
+            }
+            finally
+            {
+                await wifi.StopAsync();
+                manager.RotateCertificate();
+            }
+        }
+
+        [Fact]
+        public async Task WifiConnection_Tls_ShouldRejectHandshake_WhenPairingCodeInvalid()
+        {
+            string certPath = Path.Combine(Path.GetTempPath(), $"expandscreen-test-cert-{Guid.NewGuid():N}.pfx.dpapi");
+            var manager = new TlsCertificateManager(certPath);
+            using var cert = manager.GetOrCreateServerCertificate();
+
+            using var wifi = new WifiConnection(tcpPort: 0, discoveryPort: 0, manageFirewallRules: false, enableTls: true, tlsCertificate: cert);
+            await wifi.StartAsync();
+
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(IPAddress.Loopback, wifi.TcpPort);
+
+                using var ssl = new SslStream(
+                    client.GetStream(),
+                    leaveInnerStreamOpen: false,
+                    userCertificateValidationCallback: (_, serverCert, _, _) =>
+                    {
+                        if (serverCert is null) return false;
+                        using var remote = new System.Security.Cryptography.X509Certificates.X509Certificate2(serverCert);
+                        string expected = TlsPairingCode.ToHex(TlsPairingCode.GetFingerprintSha256(cert));
+                        string actual = TlsPairingCode.ToHex(TlsPairingCode.GetFingerprintSha256(remote));
+                        return string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase);
+                    });
+
+                await ssl.AuthenticateAsClientAsync(
+                    targetHost: "ExpandScreen",
+                    clientCertificates: null,
+                    enabledSslProtocols: SslProtocols.Tls12,
+                    checkCertificateRevocation: false);
+
+                using var clientSession = new NetworkSession(ssl);
+
+                var handshake = new HandshakeMessage
+                {
+                    DeviceId = "android-001",
+                    DeviceName = "Test Android",
+                    ClientVersion = "1.0.0",
+                    ScreenWidth = 1920,
+                    ScreenHeight = 1080,
+                    PairingCode = "000000"
+                };
+
+                bool ok = await clientSession.PerformHandshakeAsync(handshake).WaitAsync(TimeSpan.FromSeconds(3));
+                Assert.False(ok);
+                Assert.False(clientSession.IsHandshakeCompleted);
             }
             finally
             {

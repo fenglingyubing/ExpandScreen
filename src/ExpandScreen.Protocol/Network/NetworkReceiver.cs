@@ -88,20 +88,29 @@ namespace ExpandScreen.Protocol.Network
                     Interlocked.Increment(ref _totalMessagesReceived);
 
                     // 检测序列号跳变（可能丢包）
-                    if (_lastSequenceNumber > 0 && header.SequenceNumber != _lastSequenceNumber + 1)
+                    if (_lastSequenceNumber > 0)
                     {
-                        long dropped = header.SequenceNumber - _lastSequenceNumber - 1;
-                        if (dropped > 0)
+                        if (header.SequenceNumber <= _lastSequenceNumber)
                         {
-                            Interlocked.Add(ref _droppedMessages, dropped);
-                            MessageGapDetected?.Invoke(this, new MessageGapDetectedEventArgs
-                            {
-                                DroppedMessages = dropped,
-                                LastSequenceNumber = _lastSequenceNumber,
-                                CurrentSequenceNumber = header.SequenceNumber
-                            });
+                            throw new InvalidDataException(
+                                $"Non-increasing sequence number detected (last={_lastSequenceNumber}, current={header.SequenceNumber})");
                         }
-                        LogHelper.Warning($"[NetworkReceiver] Detected {dropped} dropped message(s)");
+
+                        if (header.SequenceNumber != _lastSequenceNumber + 1)
+                        {
+                            long dropped = header.SequenceNumber - _lastSequenceNumber - 1;
+                            if (dropped > 0)
+                            {
+                                Interlocked.Add(ref _droppedMessages, dropped);
+                                MessageGapDetected?.Invoke(this, new MessageGapDetectedEventArgs
+                                {
+                                    DroppedMessages = dropped,
+                                    LastSequenceNumber = _lastSequenceNumber,
+                                    CurrentSequenceNumber = header.SequenceNumber
+                                });
+                                LogHelper.Warning($"[NetworkReceiver] Detected {dropped} dropped message(s)");
+                            }
+                        }
                     }
                     _lastSequenceNumber = header.SequenceNumber;
 

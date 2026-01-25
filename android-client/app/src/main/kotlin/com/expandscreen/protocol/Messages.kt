@@ -30,6 +30,7 @@ enum class MessageType(val value: Byte) {
     TouchEvent(0x04),
     Heartbeat(0x05),
     HeartbeatAck(0x06),
+    AudioFrame(0x07),
     ;
 
     companion object {
@@ -116,6 +117,27 @@ data class VideoFrameMessage(
     val height: Int,
     @SerialName("IsKeyFrame")
     val isKeyFrame: Boolean,
+    @SerialName("Data")
+    @Serializable(with = Base64ByteArraySerializer::class)
+    val data: ByteArray,
+)
+
+@Serializable
+data class AudioFrameMessage(
+    @SerialName("FrameNumber")
+    val frameNumber: Int,
+    @SerialName("MimeType")
+    val mimeType: String,
+    @SerialName("SampleRate")
+    val sampleRate: Int,
+    @SerialName("ChannelCount")
+    val channelCount: Int,
+    @SerialName("CodecConfig0")
+    @Serializable(with = Base64ByteArraySerializer::class)
+    val codecConfig0: ByteArray = ByteArray(0),
+    @SerialName("CodecConfig1")
+    @Serializable(with = Base64ByteArraySerializer::class)
+    val codecConfig1: ByteArray = ByteArray(0),
     @SerialName("Data")
     @Serializable(with = Base64ByteArraySerializer::class)
     val data: ByteArray,

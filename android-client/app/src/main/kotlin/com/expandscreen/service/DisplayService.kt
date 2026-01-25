@@ -14,6 +14,10 @@ import android.os.PowerManager
 import android.os.Process
 import android.view.Surface
 import androidx.core.app.NotificationCompat
+import com.expandscreen.core.audio.AudioDecoderConfig
+import com.expandscreen.core.audio.AudioPlayer
+import com.expandscreen.core.audio.EncodedAudioFrame
+import com.expandscreen.core.audio.MediaCodecAudioDecoder
 import com.expandscreen.core.decoder.EncodedFrame
 import com.expandscreen.core.decoder.FrameBufferPool
 import com.expandscreen.core.decoder.H264Decoder
@@ -22,6 +26,7 @@ import com.expandscreen.core.network.ConnectionState
 import com.expandscreen.core.network.IncomingMessage
 import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.performance.PerformanceMode
+import com.expandscreen.protocol.AudioFrameMessage
 import dagger.hilt.android.AndroidEntryPoint
 import com.expandscreen.data.repository.ConnectionLogRepository
 import com.expandscreen.data.repository.PerformancePreset
@@ -99,11 +104,20 @@ class DisplayService : Service() {
 
     private val decoder = H264Decoder()
     private val frameBufferPool = FrameBufferPool()
+    private lateinit var audioPlayer: AudioPlayer
+    private lateinit var audioDecoder: MediaCodecAudioDecoder
 
     private val decoderInitLock = Any()
+    private val audioInitLock = Any()
 
     @Volatile
     private var decoderInitialized = false
+
+    @Volatile
+    private var audioInitialized = false
+
+    @Volatile
+    private var audioDecoderConfig: AudioDecoderConfig? = null
 
     @Volatile
     private var outputSurface: Surface? = null
@@ -169,6 +183,8 @@ class DisplayService : Service() {
         Timber.d("DisplayService created")
         createNotificationChannel()
         startSettingsCollector()
+        audioPlayer = AudioPlayer(applicationContext)
+        audioDecoder = MediaCodecAudioDecoder(onPcmFrame = audioPlayer::enqueue)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -300,7 +316,7 @@ class DisplayService : Service() {
                 startNotificationUpdates()
                 startMetricsUpdates()
                 startConnectionCollector()
-                startVideoCollector()
+                startMediaCollector()
             }
         }
     }
@@ -406,7 +422,7 @@ class DisplayService : Service() {
         latencySum = 0
     }
 
-    private fun startVideoCollector() {
+    private fun startMediaCollector() {
         processingJob?.cancel()
         processingJob =
             serviceScope.launch(Dispatchers.Default) {
@@ -415,51 +431,69 @@ class DisplayService : Service() {
                 var lastAcceptedFrameAtMs = 0L
 
                 networkManager.incomingMessages.collect { incoming ->
-                    if (incoming !is IncomingMessage.VideoFrame) return@collect
-
                     runCatching {
                         val nowMs = System.currentTimeMillis()
                         val mode = _state.value.performanceMode
 
-                        if (mode == PerformanceMode.PowerSave) {
-                            val minIntervalMs = (1_000L / mode.targetRenderFps.coerceAtLeast(1)).coerceAtLeast(1L)
-                            val elapsedSinceLast = nowMs - lastAcceptedFrameAtMs
-                            if (elapsedSinceLast < minIntervalMs && !incoming.message.isKeyFrame) {
-                                return@collect
+                        when (incoming) {
+                            is IncomingMessage.VideoFrame -> {
+                                if (mode == PerformanceMode.PowerSave) {
+                                    val minIntervalMs =
+                                        (1_000L / mode.targetRenderFps.coerceAtLeast(1))
+                                            .coerceAtLeast(1L)
+                                    val elapsedSinceLast = nowMs - lastAcceptedFrameAtMs
+                                    if (elapsedSinceLast < minIntervalMs && !incoming.message.isKeyFrame) {
+                                        return@collect
+                                    }
+                                }
+
+                                val latencyMs = (nowMs - incoming.timestampMs).coerceAtLeast(0).toInt()
+
+                                _state.value =
+                                    _state.value.copy(
+                                        latencyMs = latencyMs,
+                                        videoWidth = incoming.message.width,
+                                        videoHeight = incoming.message.height,
+                                    )
+
+                                val surface = outputSurface
+                                if (surface != null && ensureDecoderInitialized(incoming.message.width, incoming.message.height, surface, mode)) {
+                                    val encodedFrame =
+                                        EncodedFrame.fromMessage(
+                                            message = incoming.message,
+                                            timestampMs = incoming.timestampMs,
+                                            pool = frameBufferPool,
+                                        )
+                                    decoder.enqueueFrame(encodedFrame)
+                                }
+
+                                lastAcceptedFrameAtMs = nowMs
+                                framesInWindow += 1
+                                val elapsedMs = nowMs - windowStartMs
+                                if (elapsedMs >= 1_000L) {
+                                    val fps = (framesInWindow * 1000f / elapsedMs.toFloat()).roundToInt()
+                                    _state.value = _state.value.copy(fps = fps)
+                                    framesInWindow = 0
+                                    windowStartMs = nowMs
+                                }
                             }
-                        }
 
-                        val latencyMs = (nowMs - incoming.timestampMs).coerceAtLeast(0).toInt()
+                            is IncomingMessage.AudioFrame -> {
+                                if (ensureAudioDecoderInitialized(incoming.message)) {
+                                    val encoded =
+                                        EncodedAudioFrame.fromMessage(
+                                            message = incoming.message,
+                                            timestampMs = incoming.timestampMs,
+                                            pool = frameBufferPool,
+                                        )
+                                    audioDecoder.enqueueFrame(encoded)
+                                }
+                            }
 
-                        _state.value =
-                            _state.value.copy(
-                                latencyMs = latencyMs,
-                                videoWidth = incoming.message.width,
-                                videoHeight = incoming.message.height,
-                            )
-
-                        val surface = outputSurface
-                        if (surface != null && ensureDecoderInitialized(incoming.message.width, incoming.message.height, surface, mode)) {
-                            val encodedFrame =
-                                EncodedFrame.fromMessage(
-                                    message = incoming.message,
-                                    timestampMs = incoming.timestampMs,
-                                    pool = frameBufferPool,
-                                )
-                            decoder.enqueueFrame(encodedFrame)
-                        }
-
-                        lastAcceptedFrameAtMs = nowMs
-                        framesInWindow += 1
-                        val elapsedMs = nowMs - windowStartMs
-                        if (elapsedMs >= 1_000L) {
-                            val fps = (framesInWindow * 1000f / elapsedMs.toFloat()).roundToInt()
-                            _state.value = _state.value.copy(fps = fps)
-                            framesInWindow = 0
-                            windowStartMs = nowMs
+                            else -> return@collect
                         }
                     }.onFailure { err ->
-                        Timber.e(err, "Video processing failed")
+                        Timber.e(err, "Media processing failed")
                         _state.value = _state.value.copy(lastError = err.message ?: err.javaClass.simpleName)
                         runCatching { decoder.flush() }
                     }
@@ -536,6 +570,34 @@ class DisplayService : Service() {
         }
     }
 
+    private fun ensureAudioDecoderInitialized(message: AudioFrameMessage): Boolean {
+        synchronized(audioInitLock) {
+            val nextConfig =
+                AudioDecoderConfig(
+                    sampleRate = message.sampleRate.coerceAtLeast(1),
+                    channelCount = message.channelCount.coerceAtLeast(1),
+                    mimeType = message.mimeType,
+                    codecConfig0 = message.codecConfig0,
+                    codecConfig1 = message.codecConfig1,
+                    lowLatency = true,
+                )
+
+            if (!audioInitialized) {
+                audioPlayer.start()
+                audioDecoder.initialize(nextConfig)
+                audioDecoderConfig = nextConfig
+                audioInitialized = true
+                return true
+            }
+
+            if (audioDecoderConfig != nextConfig) {
+                audioDecoder.initialize(nextConfig)
+                audioDecoderConfig = nextConfig
+            }
+            return true
+        }
+    }
+
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         val power = getSystemService(PowerManager::class.java)
@@ -572,7 +634,13 @@ class DisplayService : Service() {
         synchronized(decoderInitLock) {
             decoderInitialized = false
         }
+        synchronized(audioInitLock) {
+            audioInitialized = false
+            audioDecoderConfig = null
+        }
         decoder.release()
+        audioDecoder.release()
+        audioPlayer.release()
         releaseWakeLock()
 
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }

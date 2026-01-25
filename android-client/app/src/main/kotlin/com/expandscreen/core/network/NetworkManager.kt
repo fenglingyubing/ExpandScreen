@@ -4,6 +4,7 @@ import com.expandscreen.protocol.HandshakeAckMessage
 import com.expandscreen.protocol.HandshakeMessage
 import com.expandscreen.protocol.HeartbeatAckMessage
 import com.expandscreen.protocol.HeartbeatMessage
+import com.expandscreen.protocol.AudioFrameMessage
 import com.expandscreen.protocol.MessageCodec
 import com.expandscreen.protocol.MessageHeader
 import com.expandscreen.protocol.MessageType
@@ -314,6 +315,16 @@ class NetworkManager @Inject constructor(
                 _incomingMessages.emit(IncomingMessage.VideoFrame(frame, header.timestampMs))
             }
 
+            MessageType.AudioFrame -> {
+                val frame =
+                    runCatching {
+                        MessageCodec.decodeJsonPayload(payload, AudioFrameMessage.serializer())
+                    }.getOrElse { e ->
+                        throw IOException("Failed to decode AudioFrame", e)
+                    }
+                _incomingMessages.emit(IncomingMessage.AudioFrame(frame, header.timestampMs))
+            }
+
             MessageType.TouchEvent -> {
                 val touch =
                     runCatching {
@@ -461,5 +472,6 @@ sealed interface IncomingMessage {
     data class Heartbeat(val message: HeartbeatMessage) : IncomingMessage
     data class HeartbeatAck(val message: HeartbeatAckMessage) : IncomingMessage
     data class VideoFrame(val message: VideoFrameMessage, val timestampMs: Long) : IncomingMessage
+    data class AudioFrame(val message: AudioFrameMessage, val timestampMs: Long) : IncomingMessage
     data class TouchEvent(val message: TouchEventMessage) : IncomingMessage
 }

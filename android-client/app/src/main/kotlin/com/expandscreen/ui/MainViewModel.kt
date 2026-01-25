@@ -4,6 +4,8 @@ import android.os.Build
 import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.expandscreen.core.security.TlsPinning
+import com.expandscreen.core.security.TrustedHostStore
 import com.expandscreen.core.network.NetworkManager
 import com.expandscreen.core.network.WifiDiscoveryClient
 import com.expandscreen.core.network.DiscoveredWindowsServer
@@ -30,6 +32,7 @@ class MainViewModel @Inject constructor(
     private val wifiDiscoveryClient: WifiDiscoveryClient,
     private val deviceRepository: DeviceRepository,
     private val settingsRepository: SettingsRepository,
+    private val trustedHostStore: TrustedHostStore,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState = _uiState.asStateFlow()
@@ -189,12 +192,16 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(lastError = null) }
             val autoReconnect = settingsRepository.settings.value.network.autoReconnect
+            val tlsEnabled = settingsRepository.settings.value.network.tlsEnabled
+            val pinnedFingerprint = if (tlsEnabled) trustedHostStore.getPinnedFingerprint(host) else null
             val result =
                 networkManager.connectViaWiFi(
                     host = host,
                     port = port,
                     handshake = handshake,
                     autoReconnect = autoReconnect,
+                    useTls = tlsEnabled,
+                    pinnedFingerprintSha256Hex = pinnedFingerprint,
                 )
             result.onSuccess {
                 val deviceId =
@@ -205,10 +212,70 @@ class MainViewModel @Inject constructor(
                 )
                 _events.emit(MainUiEvent.NavigateToDisplay(deviceId = deviceId, connectionType = "WiFi"))
             }.onFailure { err ->
-                _uiState.update { it.copy(lastError = err.message ?: err.toString()) }
+                if (tlsEnabled && err is TlsPinning.PairingRequiredException) {
+                    val reason =
+                        when (err.reason) {
+                            TlsPinning.PairingRequiredException.Reason.NotTrusted -> "首次连接需要配对：输入 Windows 端显示的 6 位配对码"
+                            TlsPinning.PairingRequiredException.Reason.FingerprintMismatch ->
+                                "证书已变更或可能存在中间人攻击：请核对配对码后重新配对"
+                        }
+
+                    _uiState.update {
+                        it.copy(
+                            tlsPairing =
+                                TlsPairingState(
+                                    host = host,
+                                    port = port,
+                                    expectedCode6 = err.peer.pairingCode6,
+                                    fingerprintSha256Hex = err.peer.fingerprintSha256Hex,
+                                    reason = reason,
+                                    deviceNameForHistory = deviceNameForHistory,
+                                ),
+                            lastError = null,
+                        )
+                    }
+                    return@onFailure
+                }
+
+                _uiState.update { it.copy(lastError = err.message ?: err.toString(), tlsPairing = null) }
                 _events.emit(MainUiEvent.ShowSnackbar("连接失败：${err.message ?: err.javaClass.simpleName}"))
             }
         }
+    }
+
+    fun setTlsPairingCodeInput(raw: String) {
+        val digits = raw.filter { it.isDigit() }.take(6)
+        _uiState.update { state ->
+            val pairing = state.tlsPairing ?: return@update state
+            state.copy(tlsPairing = pairing.copy(inputCode = digits, error = null))
+        }
+    }
+
+    fun cancelTlsPairing() {
+        _uiState.update { it.copy(tlsPairing = null) }
+    }
+
+    fun confirmTlsPairing() {
+        val pairing = _uiState.value.tlsPairing ?: return
+        val input = pairing.inputCode.trim()
+        if (input.length != 6) {
+            _uiState.update { it.copy(tlsPairing = pairing.copy(error = "请输入 6 位配对码")) }
+            return
+        }
+        if (input != pairing.expectedCode6) {
+            _uiState.update { it.copy(tlsPairing = pairing.copy(error = "配对码不匹配，请重新核对")) }
+            return
+        }
+
+        trustedHostStore.trustHost(pairing.host, pairing.fingerprintSha256Hex)
+        _uiState.update { it.copy(tlsPairing = null) }
+        _events.tryEmit(MainUiEvent.ShowSnackbar("已完成配对（TLS 信任已保存）"))
+
+        connectWifiInternal(
+            host = pairing.host,
+            port = pairing.port,
+            deviceNameForHistory = pairing.deviceNameForHistory,
+        )
     }
 
     fun waitUsb() {

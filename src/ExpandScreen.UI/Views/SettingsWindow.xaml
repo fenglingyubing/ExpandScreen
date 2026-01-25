@@ -422,6 +422,73 @@
                                     <TextBlock Text="修改端口可能需要重启连接服务后生效。"
                                                Style="{StaticResource SettingsLabelStyle}"
                                                Margin="0,10,0,0"/>
+
+                                    <Border Background="{DynamicResource BackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="18"
+                                            Margin="0,18,0,0">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel>
+                                                    <TextBlock Text="启用 WiFi TLS 加密" Style="{StaticResource SettingsValueStyle}"/>
+                                                    <TextBlock Text="启用后 Android 端需要输入配对码完成首次信任。"
+                                                               Style="{StaticResource SettingsLabelStyle}"
+                                                               Margin="0,4,0,0"/>
+                                                </StackPanel>
+
+                                                <CheckBox Grid.Column="1"
+                                                          VerticalAlignment="Center"
+                                                          IsChecked="{Binding EnableTls}"/>
+                                            </Grid>
+
+                                            <Grid Margin="0,14,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel>
+                                                    <TextBlock Text="配对码（6位）" Style="{StaticResource SettingsLabelStyle}"/>
+                                                    <TextBlock Text="{Binding WifiTlsPairingCode}"
+                                                               FontFamily="{DynamicResource MonoFont}"
+                                                               FontSize="26"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               Margin="0,4,0,0"/>
+                                                    <TextBlock Text="{Binding WifiTlsFingerprintSha256}"
+                                                               FontFamily="{DynamicResource MonoFont}"
+                                                               FontSize="11"
+                                                               Foreground="{DynamicResource TextDisabledBrush}"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,6,0,0"/>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                            Content="复制"
+                                                            Padding="12,6"
+                                                            Margin="0,0,10,0"
+                                                            Click="CopyPairingCode_Click"/>
+                                                    <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                            Content="重置配对"
+                                                            Padding="12,6"
+                                                            Click="RotateTlsCertificate_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Text="重置配对会重新生成证书并变更配对码；Android 端需删除旧信任后重新配对。"
+                                                       Style="{StaticResource SettingsLabelStyle}"
+                                                       Margin="0,12,0,0"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
                         </ScrollViewer>

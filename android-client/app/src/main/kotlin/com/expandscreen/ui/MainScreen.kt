@@ -103,6 +103,9 @@ fun MainScreen(
     onRequestQrScan: () -> Unit,
     onOpenSettings: () -> Unit,
     onCancelWaiting: () -> Unit,
+    onTlsPairingCodeChange: (String) -> Unit,
+    onConfirmTlsPairing: () -> Unit,
+    onCancelTlsPairing: () -> Unit,
 ) {
     val backgroundBrush =
         Brush.linearGradient(
@@ -299,6 +302,17 @@ fun MainScreen(
             ConnectionWaitingOverlay(onCancel = onCancelWaiting)
         }
 
+        val pairing = state.tlsPairing
+        AnimatedVisibility(visible = pairing != null) {
+            if (pairing != null) {
+                TlsPairingOverlay(
+                    pairing = pairing,
+                    onCodeChange = onTlsPairingCodeChange,
+                    onConfirm = onConfirmTlsPairing,
+                    onCancel = onCancelTlsPairing,
+                )
+            }
+        }
     }
 }
 
@@ -1157,6 +1171,126 @@ private fun ConnectionWaitingOverlay(onCancel: () -> Unit) {
     }
 }
 
+@Composable
+private fun TlsPairingOverlay(
+    pairing: TlsPairingState,
+    onCodeChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val ime = WindowInsets.ime.asPaddingValues()
+    val shimmer by
+        rememberInfiniteTransition(label = "pairing-shimmer")
+            .animateFloat(
+                initialValue = 0.62f,
+                targetValue = 1f,
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(durationMillis = 1200),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                label = "pairing-alpha",
+            )
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xFF000000).copy(alpha = 0.72f))
+                .padding(24.dp)
+                .padding(bottom = ime.calculateBottomPadding()),
+    ) {
+        Card(
+            modifier = Modifier.align(Alignment.Center),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor = Color(0xFF0B1118),
+                    contentColor = Color(0xFFE9F2FF),
+                ),
+            shape = MaterialTheme.shapes.extraLarge,
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(MaterialTheme.shapes.medium)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF2BE7FF), Color(0xFF7CFAC6)),
+                                    ),
+                                ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Wifi,
+                            contentDescription = null,
+                            tint = Color(0xFF061018),
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = "TLS pairing",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color(0xFFE9F2FF),
+                        )
+                        Text(
+                            text = pairing.reason,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFFB8C7D9).copy(alpha = shimmer),
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = pairing.inputCode,
+                    onValueChange = onCodeChange,
+                    label = { Text("Pairing code") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (!pairing.error.isNullOrBlank()) {
+                    Text(
+                        text = pairing.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFFFF8DA1),
+                    )
+                }
+
+                Text(
+                    text = "Host: ${pairing.host}:${pairing.port}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFB8C7D9),
+                    fontFamily = FontFamily.Monospace,
+                )
+                Text(
+                    text = "Fingerprint (SHA-256):\n${pairing.fingerprintSha256Hex.chunked(2).chunked(16).joinToString("\n") { line -> line.joinToString(":") }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF7EA5C7),
+                    fontFamily = FontFamily.Monospace,
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = onCancel) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Button(onClick = onConfirm) {
+                        Text("Trust & connect")
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun formatEpochMs(epochMs: Long): String {
     return runCatching {
         val dt =
@@ -1216,6 +1350,9 @@ private fun MainScreenPreview() {
             onRequestQrScan = {},
             onOpenSettings = {},
             onCancelWaiting = {},
+            onTlsPairingCodeChange = {},
+            onConfirmTlsPairing = {},
+            onCancelTlsPairing = {},
         )
     }
 }

@@ -15,5 +15,17 @@ data class MainUiState(
     val isWifiDiscovering: Boolean = false,
     val discoveredWifiServers: List<DiscoveredWindowsServer> = emptyList(),
     val preferredConnection: PreferredConnection = PreferredConnection.Wifi,
+    val tlsPairing: TlsPairingState? = null,
     val lastError: String? = null,
+)
+
+data class TlsPairingState(
+    val host: String,
+    val port: Int,
+    val expectedCode6: String,
+    val fingerprintSha256Hex: String,
+    val reason: String,
+    val deviceNameForHistory: String,
+    val inputCode: String = "",
+    val error: String? = null,
 )

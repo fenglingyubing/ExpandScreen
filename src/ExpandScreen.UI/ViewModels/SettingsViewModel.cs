@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Services.Configuration;
+using ExpandScreen.Services.Security;
 
 namespace ExpandScreen.UI.ViewModels
 {
@@ -40,6 +41,9 @@ namespace ExpandScreen.UI.ViewModels
         private int _timeoutSeconds;
         private int _reconnectAttempts;
         private int _reconnectDelayMs;
+        private bool _enableTls;
+        private string _wifiTlsPairingCode = string.Empty;
+        private string _wifiTlsFingerprintSha256 = string.Empty;
 
         private PerformanceMode _performanceMode;
         private int _encodingThreadCount;
@@ -57,6 +61,7 @@ namespace ExpandScreen.UI.ViewModels
 
         private string _configPath = string.Empty;
         private LoggingConfig _logging = new();
+        private readonly TlsCertificateManager _tlsCertificateManager = new();
 
         public SettingsViewModel(AppConfig initial, string configPath)
         {
@@ -76,6 +81,7 @@ namespace ExpandScreen.UI.ViewModels
 
             _resolution = ResolutionOptions.First();
             LoadFrom(initial);
+            RefreshTlsInfo();
         }
 
         public ObservableCollection<ThemeMode> ThemeOptions { get; }
@@ -236,6 +242,24 @@ namespace ExpandScreen.UI.ViewModels
             set => SetProperty(ref _reconnectDelayMs, value);
         }
 
+        public bool EnableTls
+        {
+            get => _enableTls;
+            set => SetProperty(ref _enableTls, value);
+        }
+
+        public string WifiTlsPairingCode
+        {
+            get => _wifiTlsPairingCode;
+            private set => SetProperty(ref _wifiTlsPairingCode, value);
+        }
+
+        public string WifiTlsFingerprintSha256
+        {
+            get => _wifiTlsFingerprintSha256;
+            private set => SetProperty(ref _wifiTlsFingerprintSha256, value);
+        }
+
         public PerformanceMode PerformanceMode
         {
             get => _performanceMode;
@@ -323,6 +347,7 @@ namespace ExpandScreen.UI.ViewModels
             TimeoutSeconds = Math.Max(1, (int)Math.Round(config.Network.TimeoutMs / 1000.0));
             ReconnectAttempts = config.Network.ReconnectAttempts;
             ReconnectDelayMs = config.Network.ReconnectDelayMs;
+            EnableTls = config.Network.EnableTls;
 
             PerformanceMode = config.Performance.Mode;
             EncodingThreadCount = config.Performance.EncodingThreadCount;
@@ -345,6 +370,21 @@ namespace ExpandScreen.UI.ViewModels
             AudioFrameDurationMs = config.Audio.FrameDurationMs;
             _audioSampleRate = config.Audio.SampleRate;
             _audioChannels = config.Audio.Channels;
+        }
+
+        public void RefreshTlsInfo()
+        {
+            try
+            {
+                using var cert = _tlsCertificateManager.GetOrCreateServerCertificate();
+                WifiTlsPairingCode = TlsPairingCode.Get6DigitCode(cert);
+                WifiTlsFingerprintSha256 = TlsPairingCode.ToHexGrouped(TlsPairingCode.GetFingerprintSha256(cert));
+            }
+            catch
+            {
+                WifiTlsPairingCode = "------";
+                WifiTlsFingerprintSha256 = "N/A";
+            }
         }
 
         public AppConfig ToConfig()
@@ -379,7 +419,8 @@ namespace ExpandScreen.UI.ViewModels
                     TcpPort = TcpPort,
                     TimeoutMs = Math.Max(1, TimeoutSeconds) * 1000,
                     ReconnectAttempts = ReconnectAttempts,
-                    ReconnectDelayMs = ReconnectDelayMs
+                    ReconnectDelayMs = ReconnectDelayMs,
+                    EnableTls = EnableTls
                 },
                 Performance = new PerformanceConfig
                 {

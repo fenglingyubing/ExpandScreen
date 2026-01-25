@@ -113,6 +113,12 @@
     <string name="pref_network_auto_reconnect_title">Auto reconnect</string>
     <string name="pref_network_auto_reconnect_summary">Reconnect automatically after WiFi disconnect</string>
 
+    <string name="pref_network_tls_enabled_title">TLS encryption</string>
+    <string name="pref_network_tls_enabled_summary">Encrypt WiFi traffic and require pairing on first trust</string>
+
+    <string name="pref_network_trusted_hosts_title">Trusted devices</string>
+    <string name="pref_network_trusted_hosts_summary">Manage paired Windows certificates</string>
+
     <string name="pref_gestures_enabled_title">Advanced gestures</string>
     <string name="pref_gestures_enabled_summary">Use multi-finger gestures for quick actions</string>
 

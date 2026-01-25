@@ -103,6 +103,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
             startActivity(Intent(requireContext(), OpenSourceLicensesActivity::class.java))
             true
         }
+
+        findPreference<Preference>("pref_network_trusted_hosts")?.setOnPreferenceClickListener {
+            startActivity(Intent(requireContext(), TrustedHostsActivity::class.java))
+            true
+        }
     }
 
     private fun toast(message: String) {

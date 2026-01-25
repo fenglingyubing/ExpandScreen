@@ -1,5 +1,6 @@
 package com.expandscreen.core.network
 
+import com.expandscreen.core.security.TlsPinning
 import com.expandscreen.protocol.HandshakeAckMessage
 import com.expandscreen.protocol.HandshakeMessage
 import com.expandscreen.protocol.HeartbeatAckMessage
@@ -77,6 +78,8 @@ class NetworkManager @Inject constructor(
     private var lastWifiHost: String? = null
     private var lastWifiPort: Int? = null
     private var lastHandshake: HandshakeMessage? = null
+    private var lastWifiUseTls: Boolean = false
+    private var lastWifiPinnedFingerprintSha256Hex: String? = null
     private var autoReconnect: Boolean = false
     private var reconnectJob: Job? = null
 
@@ -113,6 +116,8 @@ class NetworkManager @Inject constructor(
         port: Int,
         handshake: HandshakeMessage,
         autoReconnect: Boolean = true,
+        useTls: Boolean = false,
+        pinnedFingerprintSha256Hex: String? = null,
     ): Result<Unit> {
         Timber.d("Connecting via WiFi to $host:$port...")
         return connectionMutex.withLock {
@@ -121,18 +126,36 @@ class NetworkManager @Inject constructor(
             this.lastWifiHost = host
             this.lastWifiPort = port
             this.lastHandshake = handshake
+            this.lastWifiUseTls = useTls
+            this.lastWifiPinnedFingerprintSha256Hex = pinnedFingerprintSha256Hex
             reconnectJob?.cancel()
 
-            val newSocket = Socket()
+            var createdSocket: Socket? = null
             return@withLock runCatching {
-                withContext(Dispatchers.IO) {
-                    newSocket.tcpNoDelay = true
-                    newSocket.keepAlive = true
-                    newSocket.connect(InetSocketAddress(host, port), connectTimeoutMs)
-                }
-                connectWithSocket(newSocket, handshake)
+                val socket =
+                    if (useTls) {
+                        withContext(Dispatchers.IO) {
+                            TlsPinning.connectPinned(
+                                host = host,
+                                port = port,
+                                connectTimeoutMs = connectTimeoutMs,
+                                pinnedFingerprintSha256Hex = pinnedFingerprintSha256Hex,
+                            )
+                        }
+                    } else {
+                        val newSocket = Socket()
+                        withContext(Dispatchers.IO) {
+                            newSocket.tcpNoDelay = true
+                            newSocket.keepAlive = true
+                            newSocket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+                        }
+                        newSocket
+                    }
+
+                createdSocket = socket
+                connectWithSocket(socket, handshake)
             }.getOrElse { err ->
-                safeClose(newSocket)
+                safeClose(createdSocket)
                 _connectionState.value = ConnectionState.Disconnected
                 Result.failure(err)
             }
@@ -410,12 +433,22 @@ class NetworkManager @Inject constructor(
                 val host = lastWifiHost ?: return@launch
                 val port = lastWifiPort ?: return@launch
                 val handshake = lastHandshake ?: return@launch
+                val useTls = lastWifiUseTls
+                val pinnedFingerprint = lastWifiPinnedFingerprintSha256Hex
 
                 var delayMs = 500L
                 while (isActive && autoReconnect) {
                     Timber.i("Reconnect attempt in ${delayMs}ms...")
                     delay(delayMs)
-                    val result = connectViaWiFi(host, port, handshake, autoReconnect = true)
+                    val result =
+                        connectViaWiFi(
+                            host,
+                            port,
+                            handshake,
+                            autoReconnect = true,
+                            useTls = useTls,
+                            pinnedFingerprintSha256Hex = pinnedFingerprint,
+                        )
                     if (result.isSuccess) {
                         Timber.i("Reconnected")
                         return@launch

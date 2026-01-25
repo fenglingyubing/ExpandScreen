@@ -1,4 +1,4 @@
-using System.Net.Sockets;
+using System.IO;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Utils;
 
@@ -9,7 +9,7 @@ namespace ExpandScreen.Protocol.Network
     /// </summary>
     public class NetworkReceiver : IDisposable
     {
-        private readonly NetworkStream? _networkStream;
+        private readonly Stream? _stream;
         private readonly CancellationTokenSource _cts;
         private readonly Task _receiveTask;
         private bool _disposed;
@@ -38,9 +38,9 @@ namespace ExpandScreen.Protocol.Network
         /// </summary>
         public event EventHandler? ConnectionClosed;
 
-        public NetworkReceiver(NetworkStream networkStream, int maxPayloadSize = 10 * 1024 * 1024) // 默认最大10MB
+        public NetworkReceiver(Stream stream, int maxPayloadSize = 10 * 1024 * 1024) // 默认最大10MB
         {
-            _networkStream = networkStream ?? throw new ArgumentNullException(nameof(networkStream));
+            _stream = stream ?? throw new ArgumentNullException(nameof(stream));
             _cts = new CancellationTokenSource();
             _headerBuffer = new byte[MessageSerializer.HEADER_SIZE];
             _maxPayloadSize = maxPayloadSize;
@@ -116,7 +116,7 @@ namespace ExpandScreen.Protocol.Network
         /// </summary>
         private async Task<MessageHeader> ReceiveHeaderAsync(CancellationToken cancellationToken)
         {
-            if (_networkStream == null)
+            if (_stream == null)
             {
                 throw new ObjectDisposedException(nameof(NetworkReceiver));
             }
@@ -124,7 +124,7 @@ namespace ExpandScreen.Protocol.Network
             int totalRead = 0;
             while (totalRead < MessageSerializer.HEADER_SIZE)
             {
-                int bytesRead = await _networkStream.ReadAsync(
+                int bytesRead = await _stream.ReadAsync(
                     _headerBuffer.AsMemory(totalRead, MessageSerializer.HEADER_SIZE - totalRead),
                     cancellationToken
                 );
@@ -145,7 +145,7 @@ namespace ExpandScreen.Protocol.Network
         /// </summary>
         private async Task<byte[]> ReceivePayloadAsync(int payloadLength, CancellationToken cancellationToken)
         {
-            if (_networkStream == null)
+            if (_stream == null)
             {
                 throw new ObjectDisposedException(nameof(NetworkReceiver));
             }
@@ -160,7 +160,7 @@ namespace ExpandScreen.Protocol.Network
 
             while (totalRead < payloadLength)
             {
-                int bytesRead = await _networkStream.ReadAsync(
+                int bytesRead = await _stream.ReadAsync(
                     payload.AsMemory(totalRead, payloadLength - totalRead),
                     cancellationToken
                 );

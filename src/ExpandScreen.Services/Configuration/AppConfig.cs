@@ -75,6 +75,7 @@ namespace ExpandScreen.Services.Configuration
         public int TimeoutMs { get; set; } = 5000;
         public int ReconnectAttempts { get; set; } = 5;
         public int ReconnectDelayMs { get; set; } = 1000;
+        public bool EnableTls { get; set; } = false;
     }
 
     public sealed class PerformanceConfig

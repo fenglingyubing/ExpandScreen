@@ -1,8 +1,13 @@
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Protocol.Network;
 using ExpandScreen.Services.Input;
+using ExpandScreen.Services.Security;
 using ExpandScreen.Utils;
 
 namespace ExpandScreen.Services.Connection
@@ -18,6 +23,8 @@ namespace ExpandScreen.Services.Connection
         private readonly int _discoveryPort;
         private readonly bool _manageFirewallRules;
         private readonly InputService? _inputService;
+        private readonly bool _enableTls;
+        private readonly X509Certificate2? _tlsCertificate;
         private WifiDiscoveryResponder? _discoveryResponder;
 
         private TcpListener? _listener;
@@ -44,12 +51,16 @@ namespace ExpandScreen.Services.Connection
             int tcpPort = DefaultTcpPort,
             int discoveryPort = WifiDiscoveryResponder.DefaultDiscoveryPort,
             bool manageFirewallRules = false,
-            InputService? inputService = null)
+            InputService? inputService = null,
+            bool enableTls = false,
+            X509Certificate2? tlsCertificate = null)
         {
             _tcpPort = tcpPort;
             _discoveryPort = discoveryPort;
             _manageFirewallRules = manageFirewallRules;
             _inputService = inputService;
+            _enableTls = enableTls;
+            _tlsCertificate = tlsCertificate;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -186,6 +197,36 @@ namespace ExpandScreen.Services.Connection
 
         private async Task ReplaceCurrentSessionAsync(TcpClient client, CancellationToken cancellationToken)
         {
+            Stream stream = client.GetStream();
+            if (_enableTls)
+            {
+                var certificate = _tlsCertificate ?? new TlsCertificateManager().GetOrCreateServerCertificate();
+                var sslStream = new SslStream(stream, leaveInnerStreamOpen: false);
+                try
+                {
+                    await sslStream.AuthenticateAsServerAsync(
+                        serverCertificate: certificate,
+                        clientCertificateRequired: false,
+                        enabledSslProtocols: SslProtocols.Tls12,
+                        checkCertificateRevocation: false);
+                    stream = sslStream;
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Warning($"TLS handshake failed: {ex.Message}");
+                    try
+                    {
+                        sslStream.Dispose();
+                    }
+                    catch
+                    {
+                    }
+                    client.Close();
+                    client.Dispose();
+                    throw;
+                }
+            }
+
             await _sessionLock.WaitAsync(cancellationToken);
             try
             {
@@ -193,7 +234,7 @@ namespace ExpandScreen.Services.Connection
 
                 _currentClient = client;
                 var session = new NetworkSession(
-                    client.GetStream(),
+                    stream,
                     handshakeRequestHandler: request =>
                     {
                         HandshakeReceived?.Invoke(this, request);

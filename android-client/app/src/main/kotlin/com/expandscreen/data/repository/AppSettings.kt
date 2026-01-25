@@ -115,6 +115,7 @@ data class DisplaySettings(
 data class NetworkSettings(
     val preferredConnection: PreferredConnection = PreferredConnection.Wifi,
     val autoReconnect: Boolean = true,
+    val tlsEnabled: Boolean = false,
 )
 
 @Serializable

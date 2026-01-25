@@ -100,6 +100,17 @@
             android:title="@string/pref_network_auto_reconnect_title"
             android:summary="@string/pref_network_auto_reconnect_summary"
             android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="pref_network_tls_enabled"
+            android:title="@string/pref_network_tls_enabled_title"
+            android:summary="@string/pref_network_tls_enabled_summary"
+            android:defaultValue="false" />
+
+        <Preference
+            android:key="pref_network_trusted_hosts"
+            android:title="@string/pref_network_trusted_hosts_title"
+            android:summary="@string/pref_network_trusted_hosts_summary" />
     </PreferenceCategory>
 
     <PreferenceCategory

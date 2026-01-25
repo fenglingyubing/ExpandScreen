@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Text;
 using ExpandScreen.Utils;
 
 namespace ExpandScreen.Services.Connection
@@ -10,14 +8,26 @@ namespace ExpandScreen.Services.Connection
     public class AdbHelper
     {
         private readonly string _adbPath;
+        private readonly IAdbCommandRunner _commandRunner;
         private const int DefaultTimeoutMs = 5000;
 
         public AdbHelper(string? adbPath = null)
+            : this(adbPath, commandRunner: null, validateExecutable: true)
+        {
+        }
+
+        public AdbHelper(string adbPath, IAdbCommandRunner commandRunner)
+            : this(adbPath, commandRunner, validateExecutable: false)
+        {
+        }
+
+        private AdbHelper(string? adbPath, IAdbCommandRunner? commandRunner, bool validateExecutable)
         {
             // 默认在当前目录的adb子目录或系统PATH中查找
             _adbPath = adbPath ?? FindAdbExecutable();
+            _commandRunner = commandRunner ?? new ProcessAdbCommandRunner();
 
-            if (!File.Exists(_adbPath))
+            if (validateExecutable && !File.Exists(_adbPath))
             {
                 throw new FileNotFoundException($"ADB executable not found at: {_adbPath}");
             }
@@ -67,74 +77,18 @@ namespace ExpandScreen.Services.Connection
             {
                 LogHelper.Debug($"Executing ADB command: adb {arguments}");
 
-                using var process = new Process();
-                process.StartInfo = new ProcessStartInfo
-                {
-                    FileName = _adbPath,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8
-                };
+                var result = await _commandRunner.RunAsync(_adbPath, arguments, timeoutMs, cancellationToken);
 
-                var outputBuilder = new StringBuilder();
-                var errorBuilder = new StringBuilder();
-
-                process.OutputDataReceived += (sender, e) =>
-                {
-                    if (e.Data != null)
-                    {
-                        outputBuilder.AppendLine(e.Data);
-                    }
-                };
-
-                process.ErrorDataReceived += (sender, e) =>
-                {
-                    if (e.Data != null)
-                    {
-                        errorBuilder.AppendLine(e.Data);
-                    }
-                };
-
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(timeoutMs);
-
-                try
-                {
-                    await process.WaitForExitAsync(cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    if (!process.HasExited)
-                    {
-                        process.Kill();
-                        LogHelper.Warning($"ADB command timed out after {timeoutMs}ms: adb {arguments}");
-                        return (false, "", "Command timed out");
-                    }
-                }
-
-                string output = outputBuilder.ToString().Trim();
-                string error = errorBuilder.ToString().Trim();
-
-                bool success = process.ExitCode == 0;
-
-                if (!success)
-                {
-                    LogHelper.Warning($"ADB command failed (exit code {process.ExitCode}): adb {arguments}\nError: {error}");
-                }
-                else
+                if (result.success)
                 {
                     LogHelper.Debug($"ADB command succeeded: adb {arguments}");
                 }
+                else if (string.Equals(result.error, "Command timed out", StringComparison.OrdinalIgnoreCase))
+                {
+                    LogHelper.Warning($"ADB command timed out after {timeoutMs}ms: adb {arguments}");
+                }
 
-                return (success, output, error);
+                return result;
             }
             catch (Exception ex)
             {

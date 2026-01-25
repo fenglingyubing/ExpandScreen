@@ -9,6 +9,7 @@ namespace ExpandScreen.Services.Connection
     public class UsbConnection : IConnectionManager, IDisposable
     {
         private readonly AdbHelper _adbHelper;
+        private readonly UsbConnectionOptions _options;
         private TcpClient? _tcpClient;
         private NetworkStream? _networkStream;
         private string? _currentDeviceId;
@@ -19,24 +20,22 @@ namespace ExpandScreen.Services.Connection
         private readonly SemaphoreSlim _sendLock = new(1, 1);
         private CancellationTokenSource? _reconnectCts;
 
-        // 重连配置
-        private readonly int _maxReconnectAttempts = 5;
-        private readonly int _reconnectDelayMs = 2000;
         private bool _autoReconnectEnabled = true;
 
-        public bool IsConnected => _tcpClient?.Connected ?? false;
+        public bool IsConnected => IsTcpClientConnected(_tcpClient);
 
         public event EventHandler<string>? ConnectionStatusChanged;
         public event EventHandler<Exception>? ConnectionError;
 
-        public UsbConnection(AdbHelper? adbHelper = null)
-            : this(15555, 15555, adbHelper)
+        public UsbConnection(AdbHelper? adbHelper = null, UsbConnectionOptions? options = null)
+            : this(15555, 15555, adbHelper, options)
         {
         }
 
-        public UsbConnection(int localPort, int remotePort, AdbHelper? adbHelper = null)
+        public UsbConnection(int localPort, int remotePort, AdbHelper? adbHelper = null, UsbConnectionOptions? options = null)
         {
             _adbHelper = adbHelper ?? new AdbHelper();
+            _options = options ?? new UsbConnectionOptions();
             _localPort = localPort;
             _remotePort = remotePort;
             LogHelper.Info($"UsbConnection initialized (localPort={_localPort}, remotePort={_remotePort})");
@@ -46,6 +45,11 @@ namespace ExpandScreen.Services.Connection
         /// 连接到设备
         /// </summary>
         public async Task<bool> ConnectAsync(string deviceId)
+        {
+            return await ConnectInternalAsync(deviceId, isReconnect: false);
+        }
+
+        private async Task<bool> ConnectInternalAsync(string deviceId, bool isReconnect)
         {
             try
             {
@@ -59,10 +63,10 @@ namespace ExpandScreen.Services.Connection
                     return false;
                 }
 
-                // 断开现有连接
-                if (IsConnected)
+                // 断开现有连接（重连场景不要停掉重连监控）
+                if (_tcpClient != null || _networkStream != null)
                 {
-                    await DisconnectAsync();
+                    await DisconnectInternalAsync(stopReconnectMonitor: !isReconnect);
                 }
 
                 _currentDeviceId = deviceId;
@@ -109,12 +113,20 @@ namespace ExpandScreen.Services.Connection
         /// </summary>
         public async Task DisconnectAsync()
         {
+            await DisconnectInternalAsync(stopReconnectMonitor: true);
+        }
+
+        private async Task DisconnectInternalAsync(bool stopReconnectMonitor)
+        {
             try
             {
                 LogHelper.Info("Disconnecting...");
 
                 // 停止重连监控
-                StopReconnectMonitor();
+                if (stopReconnectMonitor)
+                {
+                    StopReconnectMonitor();
+                }
 
                 // 关闭TCP连接
                 if (_networkStream != null)
@@ -210,7 +222,10 @@ namespace ExpandScreen.Services.Connection
         /// </summary>
         private void StartReconnectMonitor()
         {
-            StopReconnectMonitor();
+            if (_reconnectCts != null)
+            {
+                return;
+            }
 
             _reconnectCts = new CancellationTokenSource();
             _ = Task.Run(async () => await ReconnectMonitorAsync(_reconnectCts.Token));
@@ -238,7 +253,7 @@ namespace ExpandScreen.Services.Connection
             {
                 try
                 {
-                    await Task.Delay(1000, cancellationToken);
+                    await Task.Delay(_options.MonitorIntervalMs, cancellationToken);
 
                     // 检查连接状态
                     if (!IsConnected && _currentDeviceId != null)
@@ -270,17 +285,17 @@ namespace ExpandScreen.Services.Connection
 
             string deviceId = _currentDeviceId;
 
-            for (int attempt = 1; attempt <= _maxReconnectAttempts; attempt++)
+            for (int attempt = 1; attempt <= _options.MaxReconnectAttempts; attempt++)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
 
-                LogHelper.Info($"Reconnect attempt {attempt}/{_maxReconnectAttempts}");
-                OnConnectionStatusChanged($"Reconnecting (attempt {attempt}/{_maxReconnectAttempts})");
+                LogHelper.Info($"Reconnect attempt {attempt}/{_options.MaxReconnectAttempts}");
+                OnConnectionStatusChanged($"Reconnecting (attempt {attempt}/{_options.MaxReconnectAttempts})");
 
-                bool success = await ConnectAsync(deviceId);
+                bool success = await ConnectInternalAsync(deviceId, isReconnect: true);
                 if (success)
                 {
                     LogHelper.Info("Reconnection successful");
@@ -288,14 +303,47 @@ namespace ExpandScreen.Services.Connection
                     return;
                 }
 
-                if (attempt < _maxReconnectAttempts)
+                if (attempt < _options.MaxReconnectAttempts)
                 {
-                    await Task.Delay(_reconnectDelayMs, cancellationToken);
+                    await Task.Delay(_options.ReconnectDelayMs, cancellationToken);
                 }
             }
 
             LogHelper.Error("Failed to reconnect after maximum attempts");
             OnConnectionStatusChanged("Reconnection failed");
+        }
+
+        private static bool IsTcpClientConnected(TcpClient? client)
+        {
+            if (client == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                if (!client.Connected)
+                {
+                    return false;
+                }
+
+                var socket = client.Client;
+                if (socket == null)
+                {
+                    return false;
+                }
+
+                if (socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -346,7 +394,7 @@ namespace ExpandScreen.Services.Connection
             if (!_disposed)
             {
                 StopReconnectMonitor();
-                DisconnectAsync().Wait();
+                DisconnectAsync().GetAwaiter().GetResult();
                 _sendLock.Dispose();
                 _disposed = true;
             }

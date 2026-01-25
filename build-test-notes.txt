@@ -586,6 +586,18 @@ Android：
 
 ---
 
+任务5.1.1（TEST-001 功能测试）构建/测试（Windows）
+日期：2026-01-26
+
+.NET：
+- 命令：`dotnet test ExpandScreen.sln -c Release`
+- 结果：通过 46，跳过 9，失败 0（总计 55）
+
+说明：
+- 新增 USB/ADB 功能测试使用 Fake ADB runner + Loopback TCP，不依赖真实 `adb.exe` / 真实 Android 设备。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

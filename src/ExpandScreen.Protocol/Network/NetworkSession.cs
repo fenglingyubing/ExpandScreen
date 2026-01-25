@@ -1,4 +1,4 @@
-using System.Net.Sockets;
+using System.IO;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Utils;
 
@@ -9,7 +9,7 @@ namespace ExpandScreen.Protocol.Network
     /// </summary>
     public class NetworkSession : IDisposable
     {
-        private readonly NetworkStream _networkStream;
+        private readonly Stream _stream;
         private readonly NetworkSender _sender;
         private readonly NetworkReceiver _receiver;
         private readonly CancellationTokenSource _heartbeatCts;
@@ -65,14 +65,14 @@ namespace ExpandScreen.Protocol.Network
         public event EventHandler<Exception>? SessionError;
 
         public NetworkSession(
-            NetworkStream networkStream,
+            Stream stream,
             int heartbeatIntervalMs = 5000,
             int heartbeatTimeoutMs = 15000,
             Func<HandshakeMessage, Task<(bool Accept, string? ErrorMessage)>>? handshakeRequestHandler = null)
         {
-            _networkStream = networkStream ?? throw new ArgumentNullException(nameof(networkStream));
-            _sender = new NetworkSender(networkStream);
-            _receiver = new NetworkReceiver(networkStream);
+            _stream = stream ?? throw new ArgumentNullException(nameof(stream));
+            _sender = new NetworkSender(stream);
+            _receiver = new NetworkReceiver(stream);
 
             _heartbeatIntervalMs = heartbeatIntervalMs;
             _heartbeatTimeoutMs = heartbeatTimeoutMs;

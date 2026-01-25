@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using System.Net.Sockets;
+using System.IO;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Utils;
 
@@ -10,7 +10,7 @@ namespace ExpandScreen.Protocol.Network
     /// </summary>
     public class NetworkSender : IDisposable
     {
-        private readonly NetworkStream? _networkStream;
+        private readonly Stream? _stream;
         private readonly ConcurrentQueue<QueuedMessage> _sendQueue;
         private readonly SemaphoreSlim _sendLock;
         private readonly CancellationTokenSource _cts;
@@ -39,9 +39,9 @@ namespace ExpandScreen.Protocol.Network
         /// </summary>
         public event EventHandler<Exception>? SendError;
 
-        public NetworkSender(NetworkStream networkStream, int maxQueueSize = 1000, int sendBufferSize = 256 * 1024)
+        public NetworkSender(Stream stream, int maxQueueSize = 1000, int sendBufferSize = 256 * 1024)
         {
-            _networkStream = networkStream ?? throw new ArgumentNullException(nameof(networkStream));
+            _stream = stream ?? throw new ArgumentNullException(nameof(stream));
             _sendQueue = new ConcurrentQueue<QueuedMessage>();
             _sendLock = new SemaphoreSlim(1, 1);
             _cts = new CancellationTokenSource();
@@ -118,7 +118,7 @@ namespace ExpandScreen.Protocol.Network
         /// </summary>
         public async Task SendRawAsync(byte[] data, CancellationToken cancellationToken = default)
         {
-            if (_disposed || _networkStream == null)
+            if (_disposed || _stream == null)
             {
                 throw new ObjectDisposedException(nameof(NetworkSender));
             }
@@ -126,8 +126,8 @@ namespace ExpandScreen.Protocol.Network
             await _sendLock.WaitAsync(cancellationToken);
             try
             {
-                await _networkStream.WriteAsync(data, cancellationToken);
-                await _networkStream.FlushAsync(cancellationToken);
+                await _stream.WriteAsync(data, cancellationToken);
+                await _stream.FlushAsync(cancellationToken);
             }
             finally
             {

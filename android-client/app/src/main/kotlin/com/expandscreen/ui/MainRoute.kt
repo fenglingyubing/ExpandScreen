@@ -104,5 +104,8 @@ fun MainRoute(
         onRequestQrScan = { qrLauncher.launch(Intent(context, QrScanActivity::class.java)) },
         onOpenSettings = viewModel::openSettings,
         onCancelWaiting = viewModel::disconnect,
+        onTlsPairingCodeChange = viewModel::setTlsPairingCodeInput,
+        onConfirmTlsPairing = viewModel::confirmTlsPairing,
+        onCancelTlsPairing = viewModel::cancelTlsPairing,
     )
 }

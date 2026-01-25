@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using ExpandScreen.Services.Configuration;
 using ExpandScreen.Services.Diagnostics;
+using ExpandScreen.Services.Security;
 using ExpandScreen.UI.Services;
 using ExpandScreen.UI.ViewModels;
 using ExpandScreen.Utils.Hotkeys;
@@ -292,6 +293,56 @@ namespace ExpandScreen.UI.Views
             }
 
             Close();
+        }
+
+        private void CopyPairingCode_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var code = _viewModel.WifiTlsPairingCode?.Trim();
+                if (string.IsNullOrWhiteSpace(code) || code == "------")
+                {
+                    System.Windows.MessageBox.Show("当前无法获取配对码。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                Clipboard.SetText(code);
+                System.Windows.MessageBox.Show("配对码已复制到剪贴板。", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"复制失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RotateTlsCertificate_Click(object sender, RoutedEventArgs e)
+        {
+            var result = System.Windows.MessageBox.Show(
+                "确定要重置 WiFi TLS 配对吗？\n\n重置后：\n- 证书会重新生成，配对码将改变\n- 已配对的 Android 端需要删除旧信任并重新配对",
+                "重置配对",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                bool ok = new TlsCertificateManager().RotateCertificate();
+                _viewModel.RefreshTlsInfo();
+
+                System.Windows.MessageBox.Show(
+                    ok ? "已重置配对并生成新配对码。" : "未能删除旧证书文件，但已尝试刷新配对码。",
+                    "完成",
+                    MessageBoxButton.OK,
+                    ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"重置失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }

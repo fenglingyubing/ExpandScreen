@@ -20,6 +20,7 @@ interface SettingsRepository {
 
     fun setPreferredConnection(connection: PreferredConnection)
     fun setAutoReconnect(enabled: Boolean)
+    fun setTlsEnabled(enabled: Boolean)
 
     fun exportToJson(pretty: Boolean = true): String
     fun importFromJson(json: String): Result<Unit>
@@ -42,6 +43,7 @@ interface SettingsRepository {
 
         const val NETWORK_PREFERRED_CONNECTION = "pref_network_preferred_connection"
         const val NETWORK_AUTO_RECONNECT = "pref_network_auto_reconnect"
+        const val NETWORK_TLS_ENABLED = "pref_network_tls_enabled"
 
         const val GESTURES_ENABLED = "pref_gestures_enabled"
         const val GESTURES_SENSITIVITY = "pref_gestures_sensitivity"

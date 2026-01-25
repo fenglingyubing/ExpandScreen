@@ -93,6 +93,10 @@ class SharedPreferencesSettingsRepository @Inject constructor(
         update { it.copy(network = it.network.copy(autoReconnect = enabled)) }
     }
 
+    override fun setTlsEnabled(enabled: Boolean) {
+        update { it.copy(network = it.network.copy(tlsEnabled = enabled)) }
+    }
+
     override fun exportToJson(pretty: Boolean): String {
         val settings = _settings.value
         return (if (pretty) json else compactJson).encodeToString(AppSettings.serializer(), settings)
@@ -149,6 +153,7 @@ class SharedPreferencesSettingsRepository @Inject constructor(
                         prefs.getString(SettingsRepository.NETWORK_PREFERRED_CONNECTION, null),
                     ),
                 autoReconnect = prefs.getBoolean(SettingsRepository.NETWORK_AUTO_RECONNECT, default.network.autoReconnect),
+                tlsEnabled = prefs.getBoolean(SettingsRepository.NETWORK_TLS_ENABLED, default.network.tlsEnabled),
             )
 
         val gestures =
@@ -195,6 +200,7 @@ class SharedPreferencesSettingsRepository @Inject constructor(
                 preferredConnectionPrefValue(settings.network.preferredConnection),
             )
             .putBoolean(SettingsRepository.NETWORK_AUTO_RECONNECT, settings.network.autoReconnect)
+            .putBoolean(SettingsRepository.NETWORK_TLS_ENABLED, settings.network.tlsEnabled)
             .putBoolean(SettingsRepository.GESTURES_ENABLED, settings.gestures.enabled)
             .putInt(SettingsRepository.GESTURES_SENSITIVITY, settings.gestures.sensitivity)
             .putBoolean(SettingsRepository.GESTURES_HAPTIC, settings.gestures.hapticFeedback)

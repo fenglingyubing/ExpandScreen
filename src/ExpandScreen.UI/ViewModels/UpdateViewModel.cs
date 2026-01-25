@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
+using ExpandScreen.Services.Configuration;
 using ExpandScreen.Services.Update;
 using ExpandScreen.UI.Services;
 using Serilog;
@@ -105,6 +106,56 @@ namespace ExpandScreen.UI.ViewModels
             return null;
         }
 
+        private static Uri? GetManifestUriFromConfig(AppConfig config)
+        {
+            if (config.Update?.Enabled != true)
+            {
+                return null;
+            }
+
+            string? value = config.Update.ManifestUri;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            value = value.Trim();
+
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            {
+                return uri;
+            }
+
+            if (Path.IsPathRooted(value))
+            {
+                return new Uri(value);
+            }
+
+            return null;
+        }
+
+        private static (UpdateServiceOptions Options, Uri? ManifestUri, bool IsFromEnvironment) CreateServiceOptions()
+        {
+            AppConfig config = AppConfig.CreateDefault();
+            if (Application.Current is App app)
+            {
+                config = app.ConfigService.GetSnapshot();
+            }
+
+            Uri? envUri = GetManifestUriFromEnvironment();
+            Uri? configUri = GetManifestUriFromConfig(config);
+            Uri? manifestUri = envUri ?? configUri;
+
+            bool requireSignature = config.Update?.RequireManifestSignature == true;
+            string? publicKeyPem = config.Update?.TrustedManifestPublicKeyPem;
+
+            return (new UpdateServiceOptions(
+                ManifestUri: manifestUri,
+                CurrentVersion: AppInfo.CurrentVersion,
+                TrustedManifestPublicKeyPem: publicKeyPem,
+                RequireManifestSignature: requireSignature), manifestUri, envUri is not null);
+        }
+
         private async Task CheckUpdatesAsync()
         {
             IsBusy = true;
@@ -116,20 +167,22 @@ namespace ExpandScreen.UI.ViewModels
 
             try
             {
-                Uri? manifestUri = GetManifestUriFromEnvironment();
-                var service = new UpdateService(new UpdateServiceOptions(
-                    ManifestUri: manifestUri,
-                    CurrentVersion: AppInfo.CurrentVersion));
+                var (options, manifestUri, isFromEnvironment) = CreateServiceOptions();
 
                 if (manifestUri is null)
                 {
                     StatusTitle = "未配置更新源";
-                    StatusDetail = "设置环境变量 EXPANDSCREEN_UPDATE_MANIFEST 指向更新清单（URL 或本地文件）。";
+                    StatusDetail = "请在设置 → 关于 配置更新源，或使用环境变量 EXPANDSCREEN_UPDATE_MANIFEST（URL/本地路径）。";
                     return;
                 }
 
+                var service = new UpdateService(options);
+
                 StatusTitle = "正在检查…";
-                StatusDetail = manifestUri.IsFile ? $"读取清单: {manifestUri.LocalPath}" : $"请求清单: {manifestUri}";
+                string sourceLabel = isFromEnvironment ? "环境变量" : "配置";
+                StatusDetail = manifestUri.IsFile
+                    ? $"[{sourceLabel}] 读取清单: {manifestUri.LocalPath}"
+                    : $"[{sourceLabel}] 请求清单: {manifestUri}";
 
                 var result = await service.CheckForUpdatesAsync();
                 if (!result.IsUpdateAvailable || result.Update is null)
@@ -182,10 +235,8 @@ namespace ExpandScreen.UI.ViewModels
 
             try
             {
-                Uri? manifestUri = GetManifestUriFromEnvironment();
-                var service = new UpdateService(new UpdateServiceOptions(
-                    ManifestUri: manifestUri,
-                    CurrentVersion: AppInfo.CurrentVersion));
+                var (options, _, _) = CreateServiceOptions();
+                var service = new UpdateService(options);
 
                 StatusTitle = "正在下载…";
                 StatusDetail = $"来源: {_update.DownloadUri}";

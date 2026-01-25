@@ -36,6 +36,7 @@ namespace ExpandScreen.Services.Configuration
         public NetworkConfig Network { get; set; } = new();
         public PerformanceConfig Performance { get; set; } = new();
         public HotkeysConfig Hotkeys { get; set; } = new();
+        public UpdateConfig Update { get; set; } = new();
         public LoggingConfig Logging { get; set; } = new();
 
         public static AppConfig CreateDefault() => new();
@@ -88,6 +89,14 @@ namespace ExpandScreen.Services.Configuration
         public string ConnectDisconnect { get; set; } = "Ctrl+Alt+C";
         public string NextDevice { get; set; } = "Ctrl+Alt+Right";
         public string TogglePerformanceMode { get; set; } = "Ctrl+Alt+P";
+    }
+
+    public sealed class UpdateConfig
+    {
+        public bool Enabled { get; set; } = false;
+        public string? ManifestUri { get; set; } = null;
+        public bool RequireManifestSignature { get; set; } = false;
+        public string? TrustedManifestPublicKeyPem { get; set; } = null;
     }
 
     public sealed class LoggingConfig

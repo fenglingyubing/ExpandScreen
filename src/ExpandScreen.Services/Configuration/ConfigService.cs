@@ -271,6 +271,7 @@ namespace ExpandScreen.Services.Configuration
             config.Network ??= new NetworkConfig();
             config.Performance ??= new PerformanceConfig();
             config.Hotkeys ??= new HotkeysConfig();
+            config.Update ??= new UpdateConfig();
             config.Logging ??= new LoggingConfig();
 
             if (config.Video.Width < 320)
@@ -363,6 +364,33 @@ namespace ExpandScreen.Services.Configuration
             config.Hotkeys.ConnectDisconnect ??= new HotkeysConfig().ConnectDisconnect;
             config.Hotkeys.NextDevice ??= new HotkeysConfig().NextDevice;
             config.Hotkeys.TogglePerformanceMode ??= new HotkeysConfig().TogglePerformanceMode;
+
+            // Update
+            if (!config.Update.Enabled)
+            {
+                // Keep manifest config as-is, but disable signature requirement when updates are off.
+                config.Update.RequireManifestSignature = false;
+            }
+
+            if (config.Update.RequireManifestSignature && string.IsNullOrWhiteSpace(config.Update.TrustedManifestPublicKeyPem))
+            {
+                warnings.Add("update.requireManifestSignature enabled without trusted key; disabled.");
+                config.Update.RequireManifestSignature = false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.Update.ManifestUri))
+            {
+                string manifestValue = config.Update.ManifestUri.Trim();
+
+                bool isAbsoluteUri = Uri.TryCreate(manifestValue, UriKind.Absolute, out _);
+                bool isRootedPath = Path.IsPathRooted(manifestValue);
+
+                if (!isAbsoluteUri && !isRootedPath)
+                {
+                    warnings.Add("update.manifestUri invalid; cleared (must be absolute URL or rooted file path).");
+                    config.Update.ManifestUri = null;
+                }
+            }
 
             // Logging
             config.Logging.MinimumLevel ??= "Information";

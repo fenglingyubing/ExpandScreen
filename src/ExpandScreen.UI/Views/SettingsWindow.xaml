@@ -16,6 +16,7 @@
 
     <Window.Resources>
         <conv:ConfigEnumDisplayConverter x:Key="ConfigEnumDisplayConverter"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
         <Style x:Key="SettingsLabelStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource UIFont}"/>
@@ -584,6 +585,8 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" Style="{StaticResource SettingsLabelStyle}" Margin="0,0,0,10"/>
@@ -601,13 +604,51 @@
                                                 Padding="14,6"
                                                 Click="CheckUpdates_Click"
                                                 Margin="0,0,12,0"/>
-                                        <TextBlock Text="（可选）使用 EXPANDSCREEN_UPDATE_MANIFEST"
+                                        <TextBlock Text="（优先）EXPANDSCREEN_UPDATE_MANIFEST"
                                                    Style="{StaticResource SettingsLabelStyle}"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="项目" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,14,0,0"
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="更新源" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0"/>
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,14,0,0">
+                                        <CheckBox IsChecked="{Binding UpdateEnabled}"
+                                                  FontFamily="{DynamicResource UIFont}"
+                                                  FontSize="13"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}"
+                                                  Content="启用自动更新（检查更新时使用以下清单）"
+                                                  Margin="0,0,0,10"/>
+                                        <TextBox Style="{StaticResource SettingsTextBoxStyle}"
+                                                 Text="{Binding UpdateManifestUri, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="支持 https://... 或本地路径 C:\\path\\latest.json"/>
+                                        <TextBlock Text="支持 URL 或本地文件路径；环境变量存在时会覆盖此处配置。"
+                                                   Style="{StaticResource SettingsLabelStyle}"
+                                                   Margin="0,8,0,0"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="签名验证" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0"/>
+                                    <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,14,0,0">
+                                        <CheckBox IsChecked="{Binding UpdateRequireManifestSignature}"
+                                                  FontFamily="{DynamicResource UIFont}"
+                                                  FontSize="13"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}"
+                                                  Content="强制清单签名验证（RSA）"/>
+                                        <TextBox Style="{StaticResource SettingsTextBoxStyle}"
+                                                 Text="{Binding UpdateTrustedManifestPublicKeyPem, UpdateSourceTrigger=PropertyChanged}"
+                                                 Visibility="{Binding UpdateRequireManifestSignature, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 MinHeight="110"
+                                                 ToolTip="粘贴 PEM 格式公钥（BEGIN PUBLIC KEY/BEGIN RSA PUBLIC KEY）"/>
+                                        <TextBlock Text="启用后需提供可信公钥 PEM；否则保存时会自动关闭该选项。"
+                                                   Style="{StaticResource SettingsLabelStyle}"
+                                                   Margin="0,8,0,0"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="项目" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Margin="0,14,0,0"
                                                FontFamily="{DynamicResource UIFont}" FontSize="14" Foreground="{DynamicResource PrimaryBrush}">
                                         <Hyperlink NavigateUri="https://github.com/expandscreen"
                                                    Foreground="{DynamicResource PrimaryBrush}"
@@ -616,8 +657,8 @@
                                         </Hyperlink>
                                     </TextBlock>
 
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="诊断" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0"/>
-                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,14,0,0">
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="诊断" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0"/>
+                                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,14,0,0">
                                         <Button Style="{DynamicResource SecondaryButtonStyle}"
                                                 Content="打开日志目录"
                                                 Padding="14,6"

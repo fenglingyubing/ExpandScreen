@@ -49,6 +49,12 @@ namespace ExpandScreen.UI.ViewModels
         private string _hotkeyConnectDisconnect = string.Empty;
         private string _hotkeyNextDevice = string.Empty;
         private string _hotkeyTogglePerformanceMode = string.Empty;
+
+        private bool _updateEnabled;
+        private string _updateManifestUri = string.Empty;
+        private bool _updateRequireManifestSignature;
+        private string _updateTrustedManifestPublicKeyPem = string.Empty;
+
         private string _configPath = string.Empty;
         private LoggingConfig _logging = new();
 
@@ -272,6 +278,30 @@ namespace ExpandScreen.UI.ViewModels
             set => SetProperty(ref _hotkeyTogglePerformanceMode, value);
         }
 
+        public bool UpdateEnabled
+        {
+            get => _updateEnabled;
+            set => SetProperty(ref _updateEnabled, value);
+        }
+
+        public string UpdateManifestUri
+        {
+            get => _updateManifestUri;
+            set => SetProperty(ref _updateManifestUri, value);
+        }
+
+        public bool UpdateRequireManifestSignature
+        {
+            get => _updateRequireManifestSignature;
+            set => SetProperty(ref _updateRequireManifestSignature, value);
+        }
+
+        public string UpdateTrustedManifestPublicKeyPem
+        {
+            get => _updateTrustedManifestPublicKeyPem;
+            set => SetProperty(ref _updateTrustedManifestPublicKeyPem, value);
+        }
+
         public string VideoSummary => $"{Resolution.DisplayName} • {FrameRate}fps • {BitrateMbps}Mbps • {Encoder}";
         public string AudioSummary => AudioEnabled
             ? $"{AudioCodec} • {AudioBitrateKbps}kbps • {AudioFrameDurationMs}ms"
@@ -303,6 +333,11 @@ namespace ExpandScreen.UI.ViewModels
             HotkeyConnectDisconnect = config.Hotkeys.ConnectDisconnect ?? string.Empty;
             HotkeyNextDevice = config.Hotkeys.NextDevice ?? string.Empty;
             HotkeyTogglePerformanceMode = config.Hotkeys.TogglePerformanceMode ?? string.Empty;
+
+            UpdateEnabled = config.Update?.Enabled ?? false;
+            UpdateManifestUri = config.Update?.ManifestUri ?? string.Empty;
+            UpdateRequireManifestSignature = config.Update?.RequireManifestSignature ?? false;
+            UpdateTrustedManifestPublicKeyPem = config.Update?.TrustedManifestPublicKeyPem ?? string.Empty;
 
             AudioEnabled = config.Audio.Enabled;
             AudioCodec = config.Audio.Codec;
@@ -358,6 +393,13 @@ namespace ExpandScreen.UI.ViewModels
                     ConnectDisconnect = HotkeyConnectDisconnect ?? string.Empty,
                     NextDevice = HotkeyNextDevice ?? string.Empty,
                     TogglePerformanceMode = HotkeyTogglePerformanceMode ?? string.Empty
+                },
+                Update = new UpdateConfig
+                {
+                    Enabled = UpdateEnabled,
+                    ManifestUri = string.IsNullOrWhiteSpace(UpdateManifestUri) ? null : UpdateManifestUri.Trim(),
+                    RequireManifestSignature = UpdateRequireManifestSignature,
+                    TrustedManifestPublicKeyPem = string.IsNullOrWhiteSpace(UpdateTrustedManifestPublicKeyPem) ? null : UpdateTrustedManifestPublicKeyPem
                 },
                 Logging = new LoggingConfig
                 {

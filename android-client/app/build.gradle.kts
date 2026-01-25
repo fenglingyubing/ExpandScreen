@@ -129,6 +129,13 @@ dependencies {
     // Accompanist (System UI Controller for full screen, etc.)
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
 
+    // QR scanning (CameraX + ML Kit)
+    val cameraXVersion = "1.3.2"
+    implementation("androidx.camera:camera-camera2:$cameraXVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraXVersion")
+    implementation("androidx.camera:camera-view:$cameraXVersion")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")

@@ -11,6 +11,9 @@
     <!-- Wake lock for keeping screen on -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- QR scan -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <!-- Foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -57,6 +60,13 @@
             android:name=".ui.settings.SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.ExpandScreen"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
+
+        <!-- QR Scan -->
+        <activity
+            android:name=".ui.qr.QrScanActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ExpandScreen.FullScreen"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
 
         <activity

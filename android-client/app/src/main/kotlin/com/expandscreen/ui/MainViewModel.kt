@@ -12,6 +12,7 @@ import com.expandscreen.data.repository.DeviceRepository
 import com.expandscreen.data.repository.PreferredConnection
 import com.expandscreen.data.repository.SettingsRepository
 import com.expandscreen.protocol.HandshakeMessage
+import com.expandscreen.ui.qr.QrCodeParser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -83,8 +84,30 @@ class MainViewModel @Inject constructor(
         _events.tryEmit(MainUiEvent.NavigateToSettings)
     }
 
-    fun requestQrScan() {
-        _events.tryEmit(MainUiEvent.ShowSnackbar("扫码连接暂未实现（预留）"))
+    fun onQrScanResult(raw: String) {
+        val isBusy = _uiState.value.connectionState != com.expandscreen.core.network.ConnectionState.Disconnected
+        if (isBusy) {
+            _events.tryEmit(MainUiEvent.ShowSnackbar("当前正在连接中，请先断开再扫码"))
+            return
+        }
+
+        val parsed = QrCodeParser.parse(raw)
+        parsed.onFailure { err ->
+            _events.tryEmit(MainUiEvent.ShowSnackbar("二维码解析失败：${err.message ?: err.javaClass.simpleName}"))
+            return
+        }
+
+        val info = parsed.getOrThrow()
+        _uiState.update { it.copy(host = info.host, port = info.port.toString(), lastError = null) }
+        if (!info.token.isNullOrBlank()) {
+            _events.tryEmit(MainUiEvent.ShowSnackbar("已读取认证信息（当前版本暂不使用）"))
+        }
+
+        connectWifiInternal(
+            host = info.host,
+            port = info.port,
+            deviceNameForHistory = info.deviceName ?: "Windows @ ${info.host}",
+        )
     }
 
     fun disconnect() {

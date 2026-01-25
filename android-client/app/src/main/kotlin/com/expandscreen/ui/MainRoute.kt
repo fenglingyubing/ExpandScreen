@@ -3,22 +3,39 @@ package com.expandscreen.ui
 import android.app.Activity
 import android.app.ActivityOptions
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expandscreen.ui.qr.QrScanActivity
 import com.expandscreen.ui.settings.SettingsActivity
+import kotlinx.coroutines.launch
 
 @Composable
 fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbars = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    val qrLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+            val raw = result.data?.getStringExtra(QrScanActivity.EXTRA_QR_RAW)?.trim().orEmpty()
+            if (raw.isBlank()) {
+                scope.launch { snackbars.showSnackbar("未获取到二维码内容") }
+                return@rememberLauncherForActivityResult
+            }
+            viewModel.onQrScanResult(raw)
+        }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -69,7 +86,7 @@ fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
         onConnectHistory = viewModel::connectHistory,
         onToggleFavorite = viewModel::toggleFavorite,
         onDeleteDevice = viewModel::deleteDevice,
-        onRequestQrScan = viewModel::requestQrScan,
+        onRequestQrScan = { qrLauncher.launch(Intent(context, QrScanActivity::class.java)) },
         onOpenSettings = viewModel::openSettings,
         onCancelWaiting = viewModel::disconnect,
     )

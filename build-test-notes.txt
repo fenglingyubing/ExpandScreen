@@ -468,6 +468,30 @@
 
 ---
 
+任务4.2.2构建要求:
+- JDK 17+（AGP 8.2.x 运行要求；本次使用 `F:\\Java\\jdk-21`）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+- .NET 8.0 SDK（用于仓库内 .NET 侧回归）
+
+构建/测试状态:
+✅ AND-202（二维码连接）相关代码已完成
+✅ Android 单元测试通过
+✅ .NET 构建与测试通过
+
+关键命令与输出（本地 Windows）:
+1. Android（单元测试）:
+  - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:testDebugUnitTest --no-daemon; popd`
+  - 结果：BUILD SUCCESSFUL（35 actionable tasks, 42s）
+2. .NET（解决方案测试）:
+  - `dotnet test ExpandScreen.sln -c Release`
+  - 结果：Passed 36, Skipped 9, Failed 0
+
+说明:
+- 若环境存在 `~/.gradle/gradle.properties` 的本地代理（如 `127.0.0.1:7897`），会导致依赖下载失败；本次通过禁用 proxy 解决。
+
+---
+
 任务4.1.1构建要求:
 - .NET 8.0 SDK
 - Windows 10/11（WPF + 驱动 IOCTL 接口；测试可跨平台跑除驱动依赖部分）

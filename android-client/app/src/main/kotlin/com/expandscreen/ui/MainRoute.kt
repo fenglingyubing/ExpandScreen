@@ -17,14 +17,29 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expandscreen.ui.qr.QrScanActivity
 import com.expandscreen.ui.settings.SettingsActivity
+import com.expandscreen.widget.QuickConnectWidgetIntents
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainRoute(viewModel: MainViewModel = hiltViewModel()) {
+fun MainRoute(
+    launchIntent: Intent? = null,
+    onIntentConsumed: () -> Unit = {},
+    viewModel: MainViewModel = hiltViewModel(),
+) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbars = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(launchIntent) {
+        val intent = launchIntent ?: return@LaunchedEffect
+        val deviceId = intent.getLongExtra(QuickConnectWidgetIntents.EXTRA_DEVICE_ID, -1L)
+
+        if (intent.action == QuickConnectWidgetIntents.ACTION_QUICK_CONNECT && deviceId > 0) {
+            viewModel.quickConnectDeviceId(deviceId)
+            onIntentConsumed()
+        }
+    }
 
     val qrLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->

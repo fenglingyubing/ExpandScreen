@@ -254,6 +254,23 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun quickConnectDeviceId(deviceId: Long) {
+        val isBusy = _uiState.value.connectionState != com.expandscreen.core.network.ConnectionState.Disconnected
+        if (isBusy) {
+            _events.tryEmit(MainUiEvent.ShowSnackbar("当前正在连接中，请先断开再发起快速连接"))
+            return
+        }
+
+        viewModelScope.launch {
+            val device = deviceRepository.getDeviceById(deviceId)
+            if (device == null) {
+                _events.emit(MainUiEvent.ShowSnackbar("未找到该设备（可能已删除）"))
+                return@launch
+            }
+            connectHistory(device)
+        }
+    }
+
     fun toggleFavorite(device: WindowsDeviceEntity) {
         viewModelScope.launch { deviceRepository.toggleFavorite(device) }
     }

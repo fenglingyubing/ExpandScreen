@@ -1,5 +1,6 @@
 package com.expandscreen.ui
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expandscreen.data.repository.SettingsRepository
@@ -18,8 +21,11 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
 
+    private var launchIntent by mutableStateOf<Intent?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        launchIntent = intent
         setContent {
             val settings by settingsRepository.settings.collectAsStateWithLifecycle()
             ExpandScreenTheme(
@@ -30,9 +36,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    MainRoute()
+                    MainRoute(
+                        launchIntent = launchIntent,
+                        onIntentConsumed = { launchIntent = null },
+                    )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        launchIntent = intent
     }
 }

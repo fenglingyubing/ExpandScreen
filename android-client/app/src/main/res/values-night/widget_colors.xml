@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_bg">#0E1116</color>
+    <color name="widget_fg">#F6F2EA</color>
+    <color name="widget_muted">#A6A29A</color>
+    <color name="widget_accent">#FF5A1F</color>
+
+    <color name="widget_button_bg">#F6F2EA</color>
+    <color name="widget_button_fg">#0E1116</color>
+
+    <color name="widget_status_ok">#7CFAC6</color>
+    <color name="widget_status_warn">#FFD36B</color>
+    <color name="widget_status_idle">#B8C7D9</color>
+</resources>
+

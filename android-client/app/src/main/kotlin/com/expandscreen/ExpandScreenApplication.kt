@@ -2,6 +2,8 @@ package com.expandscreen
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
+import com.expandscreen.widget.WidgetSyncObserver
 import timber.log.Timber
 
 /**
@@ -11,6 +13,8 @@ import timber.log.Timber
  */
 @HiltAndroidApp
 class ExpandScreenApplication : Application() {
+
+    @Inject lateinit var widgetSyncObserver: WidgetSyncObserver
 
     override fun onCreate() {
         super.onCreate()
@@ -23,6 +27,7 @@ class ExpandScreenApplication : Application() {
             Timber.plant(ReleaseTree())
         }
 
+        widgetSyncObserver.start()
         Timber.i("ExpandScreen Application initialized")
     }
 

@@ -1,6 +1,10 @@
 package com.expandscreen.ui
 
+import android.Manifest
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.opengl.GLSurfaceView
 import android.content.ComponentName
@@ -9,10 +13,12 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -46,6 +52,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
@@ -83,6 +90,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import timber.log.Timber
+import android.widget.Toast
 
 /**
  * Display Activity - Full screen video display
@@ -110,6 +118,7 @@ class DisplayActivity : ComponentActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
 
     private val uiState = MutableStateFlow(DisplayUiState())
+    private val notificationPermissionGranted = mutableStateOf(true)
 
     private var glSurfaceView: GLSurfaceView? = null
 
@@ -165,10 +174,28 @@ class DisplayActivity : ComponentActivity() {
             }
         }
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            notificationPermissionGranted.value = granted
+            if (granted) {
+                startAndBindDisplayService()
+            } else {
+                Toast
+                    .makeText(
+                        this,
+                        getString(R.string.notifications_required_for_streaming),
+                        Toast.LENGTH_LONG,
+                    )
+                    .show()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         Timber.d("DisplayActivity created")
+
+        notificationPermissionGranted.value = hasPostNotificationsPermission()
 
         val initialSettings = settingsRepository.settings.value
         applyKeepScreenOn(initialSettings.display.keepScreenOn)
@@ -182,35 +209,45 @@ class DisplayActivity : ComponentActivity() {
                 dynamicColor = settings.display.dynamicColor,
             ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
-                    DisplayScreen(
-                        uiState = uiState,
-                        onExit = {
-                            boundService.value?.disconnect()
-                            runCatching {
-                                startService(DisplayService.disconnectAndStopIntent(this@DisplayActivity))
-                            }
-                            finish()
-                        },
-                        onToggleHud = { uiState.update { it.copy(showHud = !it.showHud) } },
-                        onToggleRotationLock = {
-                            val newAllowRotation = !uiState.value.allowRotation
-                            settingsRepository.setAllowRotation(newAllowRotation)
-                            uiState.update { it.copy(allowRotation = newAllowRotation) }
-                        },
-                        onToggleMenu = { uiState.update { it.copy(showMenu = !it.showMenu) } },
-                        onHideMenu = { uiState.update { it.copy(showMenu = false) } },
-                        onSetPerformanceMode = { mode ->
-                            uiState.update { it.copy(performanceMode = mode) }
-                            applyBrightnessForMode(mode)
-                            settingsRepository.setPerformancePreset(mode.toPreset())
-                            boundService.value?.setPerformanceMode(mode)
-                        },
-                        onMotionEvent = { motionEvent -> handleMotionEvent(motionEvent) },
-                        glSurfaceViewProvider = { surfaceView ->
-                            glSurfaceView = surfaceView
-                            renderer.bindTo(surfaceView)
-                        },
-                    )
+                    if (!notificationPermissionGranted.value) {
+                        NotificationPermissionGate(
+                            onRequestPermission = {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            },
+                            onOpenSettings = { openAppNotificationSettings() },
+                            onExit = { finish() },
+                        )
+                    } else {
+                        DisplayScreen(
+                            uiState = uiState,
+                            onExit = {
+                                boundService.value?.disconnect()
+                                runCatching {
+                                    startService(DisplayService.disconnectAndStopIntent(this@DisplayActivity))
+                                }
+                                finish()
+                            },
+                            onToggleHud = { uiState.update { it.copy(showHud = !it.showHud) } },
+                            onToggleRotationLock = {
+                                val newAllowRotation = !uiState.value.allowRotation
+                                settingsRepository.setAllowRotation(newAllowRotation)
+                                uiState.update { it.copy(allowRotation = newAllowRotation) }
+                            },
+                            onToggleMenu = { uiState.update { it.copy(showMenu = !it.showMenu) } },
+                            onHideMenu = { uiState.update { it.copy(showMenu = false) } },
+                            onSetPerformanceMode = { mode ->
+                                uiState.update { it.copy(performanceMode = mode) }
+                                applyBrightnessForMode(mode)
+                                settingsRepository.setPerformancePreset(mode.toPreset())
+                                boundService.value?.setPerformanceMode(mode)
+                            },
+                            onMotionEvent = { motionEvent -> handleMotionEvent(motionEvent) },
+                            glSurfaceViewProvider = { surfaceView ->
+                                glSurfaceView = surfaceView
+                                renderer.bindTo(surfaceView)
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -273,6 +310,17 @@ class DisplayActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        notificationPermissionGranted.value = hasPostNotificationsPermission()
+        if (!notificationPermissionGranted.value) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            return
+        }
+        startAndBindDisplayService()
+    }
+
+    private fun startAndBindDisplayService() {
         val startIntent =
             if (logDeviceId != null && logConnectionType != null) {
                 DisplayService.startIntent(this, logDeviceId!!, logConnectionType!!)
@@ -286,6 +334,22 @@ class DisplayActivity : ComponentActivity() {
                 serviceConnection,
                 BIND_AUTO_CREATE,
             )
+    }
+
+    private fun hasPostNotificationsPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < 33) return true
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun openAppNotificationSettings() {
+        val intent =
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                data = Uri.fromParts("package", packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        runCatching { startActivity(intent) }
+            .onFailure { Timber.w(it, "Open notification settings failed") }
     }
 
     override fun onResume() {
@@ -502,6 +566,91 @@ private data class DisplayUiState(
     val allowRotation: Boolean = false,
     val gestureToast: String? = null,
 )
+
+@Composable
+private fun NotificationPermissionGate(
+    onRequestPermission: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onExit: () -> Unit,
+) {
+    val haze =
+        Brush.radialGradient(
+            0.0f to Color(0xFF0B0F14),
+            0.55f to Color(0xFF061014),
+            1.0f to Color(0xFF040609),
+        )
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(haze).padding(22.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        val panelBrush =
+            Brush.linearGradient(
+                0.0f to Color(0xFF0E1622),
+                1.0f to Color(0xFF0A0F18),
+            )
+
+        Column(
+            modifier =
+                Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(panelBrush)
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.notification_permission_title),
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFFEAFBFF),
+                style = MaterialTheme.typography.titleLarge,
+            )
+
+            Text(
+                text = stringResource(R.string.notification_permission_body),
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFFB7C7D4),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            Spacer(modifier = Modifier.size(6.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = onRequestPermission,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF7CFAC6),
+                            contentColor = Color(0xFF03120F),
+                        ),
+                ) {
+                    Text(text = stringResource(R.string.notification_permission_grant), fontFamily = FontFamily.Monospace)
+                }
+
+                Button(
+                    onClick = onOpenSettings,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF182335),
+                            contentColor = Color(0xFFEAFBFF),
+                        ),
+                ) {
+                    Text(text = stringResource(R.string.notification_permission_settings), fontFamily = FontFamily.Monospace)
+                }
+            }
+
+            Text(
+                modifier =
+                    Modifier
+                        .padding(top = 4.dp)
+                        .clickable(onClick = onExit),
+                text = stringResource(R.string.notification_permission_exit),
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFF9FB2C0),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
 
 @Composable
 @OptIn(ExperimentalComposeUiApi::class)

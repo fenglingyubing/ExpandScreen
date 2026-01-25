@@ -153,6 +153,12 @@
     <string name="notification_channel_desc">Shows connection status and performance</string>
     <string name="notification_connected">Connected to %s</string>
     <string name="notification_streaming">Streaming: FPS %1$d | Latency %2$dms</string>
+    <string name="notifications_required_for_streaming">Allow notifications to start streaming (Android 13+).</string>
+    <string name="notification_permission_title">Notifications required</string>
+    <string name="notification_permission_body">Android 13+ requires notification permission for the foreground display service. Enable it to keep streaming visible and controllable.</string>
+    <string name="notification_permission_grant">Grant</string>
+    <string name="notification_permission_settings">Settings</string>
+    <string name="notification_permission_exit">Exit</string>
 
     <!-- Errors -->
     <string name="error_network">Network error</string>

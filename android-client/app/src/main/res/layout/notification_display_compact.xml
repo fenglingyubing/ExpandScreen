@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notif_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/notif_bg"
+    android:paddingStart="12dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="10dp">
+
+    <ImageView
+        android:id="@+id/notif_icon"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:src="@drawable/ic_stat_expandscreen"
+        android:tint="#D7F8FF" />
+
+    <LinearLayout
+        android:id="@+id/notif_text_block"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toEndOf="@id/notif_icon"
+        android:layout_toStartOf="@id/notif_actions"
+        android:layout_marginStart="10dp"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/notif_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="#EAFBFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:text="ExpandScreen" />
+
+            <TextView
+                android:id="@+id/notif_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="monospace"
+                android:textColor="#7CFAC6"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:text="STREAMING" />
+
+            <TextView
+                android:id="@+id/notif_error"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="monospace"
+                android:textColor="#FF6B6B"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:text="ERR"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="0dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/notif_fps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="#B7C7D4"
+                android:textSize="12sp"
+                android:text="60 FPS" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:fontFamily="monospace"
+                android:textColor="#2C3A4D"
+                android:textSize="12sp"
+                android:text="•" />
+
+            <TextView
+                android:id="@+id/notif_latency"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:fontFamily="monospace"
+                android:textColor="#B7C7D4"
+                android:textSize="12sp"
+                android:text="12ms" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:fontFamily="monospace"
+                android:textColor="#2C3A4D"
+                android:textSize="12sp"
+                android:text="•" />
+
+            <TextView
+                android:id="@+id/notif_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:fontFamily="monospace"
+                android:textColor="#B7C7D4"
+                android:textSize="12sp"
+                android:text="0:42" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:fontFamily="monospace"
+                android:textColor="#2C3A4D"
+                android:textSize="12sp"
+                android:text="•" />
+
+            <TextView
+                android:id="@+id/notif_mode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:fontFamily="monospace"
+                android:textColor="#B7C7D4"
+                android:textSize="12sp"
+                android:text="BAL" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/notif_actions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/notif_action_mode"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/notif_action_bg"
+            android:padding="6dp"
+            android:src="@drawable/ic_notif_tune"
+            android:tint="#D7F8FF" />
+
+        <ImageView
+            android:id="@+id/notif_action_disconnect"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/notif_action_bg"
+            android:padding="6dp"
+            android:src="@drawable/ic_notif_disconnect"
+            android:tint="#FF6B6B" />
+    </LinearLayout>
+</RelativeLayout>

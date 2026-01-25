@@ -544,6 +544,31 @@ Android：
 
 ---
 
+任务4.2.5构建要求:
+- JDK 17+（AGP 8.2.x 运行要求；本次使用 `F:\\Java\\jdk-21`）
+- Android SDK (platforms;android-34, build-tools;34.0.0, platform-tools)
+- Gradle Wrapper（`android-client/gradlew`）
+- .NET 8.0 SDK（用于仓库内 .NET 侧回归）
+
+构建/测试状态:
+✅ AND-205（通知优化）相关代码已完成
+✅ Android 单元测试与 Debug 包构建通过
+✅ .NET 构建与测试通过
+
+关键命令与输出（本地 Windows）:
+1. Android（单元测试 + Debug 构建）:
+  - `pushd android-client; $env:JAVA_HOME="F:\\Java\\jdk-21"; $env:Path="$env:JAVA_HOME\\bin;$env:Path"; .\\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-daemon; popd`
+  - 结果：BUILD SUCCESSFUL（52 actionable tasks, 1m 55s）
+2. .NET（解决方案测试）:
+  - `dotnet test ExpandScreen.sln -c Release`
+  - 结果：通过 36，跳过 9，失败 0
+
+说明:
+- Android 编译期存在部分 deprecated API 警告（不影响构建/测试通过）。
+- .NET 构建过程中存在历史代码的编译告警（CS1998/CS8602/CS8625 等），不影响本任务测试通过。
+
+---
+
 之前任务构建要求:
 
 任务2.1.2构建要求:

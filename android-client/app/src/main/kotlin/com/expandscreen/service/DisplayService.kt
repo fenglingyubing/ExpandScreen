@@ -3,6 +3,7 @@ package com.expandscreen.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -12,7 +13,9 @@ import android.os.Debug
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.Process
+import android.os.SystemClock
 import android.view.Surface
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.expandscreen.core.audio.AudioDecoderConfig
 import com.expandscreen.core.audio.AudioPlayer
@@ -31,6 +34,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import com.expandscreen.data.repository.ConnectionLogRepository
 import com.expandscreen.data.repository.PerformancePreset
 import com.expandscreen.data.repository.SettingsRepository
+import com.expandscreen.ui.DisplayActivity
 import javax.inject.Inject
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
@@ -75,6 +79,7 @@ class DisplayService : Service() {
         const val ACTION_START = "com.expandscreen.action.DISPLAY_START"
         const val ACTION_STOP = "com.expandscreen.action.DISPLAY_STOP"
         const val ACTION_DISCONNECT_AND_STOP = "com.expandscreen.action.DISPLAY_DISCONNECT_AND_STOP"
+        const val ACTION_TOGGLE_PERFORMANCE_PRESET = "com.expandscreen.action.DISPLAY_TOGGLE_PERFORMANCE_PRESET"
 
         private const val EXTRA_DEVICE_ID = "com.expandscreen.extra.DEVICE_ID"
         private const val EXTRA_CONNECTION_TYPE = "com.expandscreen.extra.CONNECTION_TYPE"
@@ -150,6 +155,9 @@ class DisplayService : Service() {
     private var activeLogStartTimeMs: Long? = null
 
     @Volatile
+    private var connectedAtElapsedMs: Long? = null
+
+    @Volatile
     private var samples: Long = 0
 
     @Volatile
@@ -205,6 +213,11 @@ class DisplayService : Service() {
                 return START_NOT_STICKY
             }
 
+            ACTION_TOGGLE_PERFORMANCE_PRESET -> {
+                togglePerformancePreset()
+                return START_STICKY
+            }
+
             ACTION_START, null -> {
                 // Continue below.
             }
@@ -254,10 +267,13 @@ class DisplayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "ExpandScreen Display",
+                getString(com.expandscreen.R.string.notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Displays connection status and performance metrics"
+                description = getString(com.expandscreen.R.string.notification_channel_desc)
+                setShowBadge(false)
+                enableVibration(false)
+                setSound(null, null)
             }
 
             val notificationManager = getSystemService(NotificationManager::class.java)
@@ -266,23 +282,140 @@ class DisplayService : Service() {
     }
 
     private fun buildNotification(state: DisplayServiceState): Notification {
-        val statusText =
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
+        val contentIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, DisplayActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                },
+                flags,
+            )
+
+        val disconnectIntent =
+            PendingIntent.getService(
+                this,
+                1,
+                Intent(this, DisplayService::class.java).setAction(ACTION_DISCONNECT_AND_STOP),
+                flags,
+            )
+
+        val togglePerfIntent =
+            PendingIntent.getService(
+                this,
+                2,
+                Intent(this, DisplayService::class.java).setAction(ACTION_TOGGLE_PERFORMANCE_PRESET),
+                flags,
+            )
+
+        val (statusText, statusLabel) =
             when (state.connectionState) {
+                ConnectionState.Connecting -> "Connecting…" to "CONNECTING"
+                is ConnectionState.Connected -> "Streaming" to "STREAMING"
+                ConnectionState.Disconnected -> "Disconnected" to "DISCONNECTED"
+            }
+
+        val durationLabel =
+            if (state.connectionDurationMs > 0L) formatDurationMs(state.connectionDurationMs) else "—"
+
+        val modeShort =
+            when (state.performanceMode) {
+                PerformanceMode.Performance -> "PERF"
+                PerformanceMode.Balanced -> "BAL"
+                PerformanceMode.PowerSave -> "SAVE"
+            }
+
+        val compact =
+            RemoteViews(packageName, com.expandscreen.R.layout.notification_display_compact).apply {
+                setTextViewText(com.expandscreen.R.id.notif_title, getString(com.expandscreen.R.string.app_name))
+                setTextViewText(com.expandscreen.R.id.notif_status, statusLabel)
+                setTextViewText(com.expandscreen.R.id.notif_fps, "${state.fps} FPS")
+                setTextViewText(com.expandscreen.R.id.notif_latency, "${state.latencyMs}ms")
+                setTextViewText(com.expandscreen.R.id.notif_duration, durationLabel)
+                setTextViewText(com.expandscreen.R.id.notif_mode, modeShort)
+
+                setOnClickPendingIntent(com.expandscreen.R.id.notif_root, contentIntent)
+                setOnClickPendingIntent(com.expandscreen.R.id.notif_action_disconnect, disconnectIntent)
+                setOnClickPendingIntent(com.expandscreen.R.id.notif_action_mode, togglePerfIntent)
+
+                setViewVisibility(
+                    com.expandscreen.R.id.notif_error,
+                    if (state.lastError.isNullOrBlank()) android.view.View.GONE else android.view.View.VISIBLE,
+                )
+            }
+
+        val expanded =
+            RemoteViews(packageName, com.expandscreen.R.layout.notification_display_expanded).apply {
+                setTextViewText(com.expandscreen.R.id.notif_title, getString(com.expandscreen.R.string.app_name))
+                setTextViewText(com.expandscreen.R.id.notif_status, statusLabel)
+                setTextViewText(com.expandscreen.R.id.notif_status_detail, statusText)
+                setTextViewText(com.expandscreen.R.id.notif_fps, "${state.fps}")
+                setTextViewText(com.expandscreen.R.id.notif_latency, "${state.latencyMs}ms")
+                setTextViewText(com.expandscreen.R.id.notif_duration, durationLabel)
+                setTextViewText(com.expandscreen.R.id.notif_mode, "${state.performanceMode.label} ($modeShort)")
+
+                setOnClickPendingIntent(com.expandscreen.R.id.notif_root, contentIntent)
+                setOnClickPendingIntent(com.expandscreen.R.id.notif_action_disconnect, disconnectIntent)
+                setOnClickPendingIntent(com.expandscreen.R.id.notif_action_mode, togglePerfIntent)
+
+                setViewVisibility(
+                    com.expandscreen.R.id.notif_error,
+                    if (state.lastError.isNullOrBlank()) android.view.View.GONE else android.view.View.VISIBLE,
+                )
+                setTextViewText(
+                    com.expandscreen.R.id.notif_error,
+                    state.lastError?.take(32)?.trim().orEmpty(),
+                )
+            }
+
+        val fallbackText =
+            when (state.connectionState) {
+                is ConnectionState.Connected -> "Streaming • ${state.fps} FPS • ${state.latencyMs}ms • $durationLabel"
                 ConnectionState.Connecting -> "Connecting…"
-                is ConnectionState.Connected -> {
-                    val error = state.lastError?.let { " • ERR" } ?: ""
-                    "Streaming • ${state.fps} FPS • ${state.latencyMs}ms$error"
-                }
                 ConnectionState.Disconnected -> "Disconnected"
             }
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("ExpandScreen")
-            .setContentText(statusText)
             .setSmallIcon(com.expandscreen.R.drawable.ic_stat_expandscreen)
+            .setContentTitle(getString(com.expandscreen.R.string.app_name))
+            .setContentText(fallbackText)
+            .setCustomContentView(compact)
+            .setCustomBigContentView(expanded)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setContentIntent(contentIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
             .build()
+    }
+
+    private fun formatDurationMs(durationMs: Long): String {
+        val totalSeconds = (durationMs / 1000L).coerceAtLeast(0L)
+        val seconds = (totalSeconds % 60L).toInt()
+        val totalMinutes = totalSeconds / 60L
+        val minutes = (totalMinutes % 60L).toInt()
+        val hours = (totalMinutes / 60L).toInt()
+
+        return if (hours > 0) {
+            "%d:%02d:%02d".format(hours, minutes, seconds)
+        } else {
+            "%d:%02d".format(minutes, seconds)
+        }
+    }
+
+    private fun togglePerformancePreset() {
+        val current = settingsRepository.settings.value.performance.preset
+        val next =
+            when (current) {
+                PerformancePreset.PowerSave -> PerformancePreset.Balanced
+                PerformancePreset.Balanced -> PerformancePreset.Performance
+                PerformancePreset.Performance -> PerformancePreset.PowerSave
+            }
+        settingsRepository.setPerformancePreset(next)
+        setPerformanceMode(next.toPerformanceMode())
     }
 
     fun setDecoderOutputSurface(surface: Surface?) {
@@ -335,11 +468,15 @@ class DisplayService : Service() {
                         )
                     if (connectionState is ConnectionState.Connected) {
                         if (previousState !is ConnectionState.Connected) {
+                            connectedAtElapsedMs = SystemClock.elapsedRealtime()
+                            _state.value = _state.value.copy(connectionDurationMs = 0L)
                             startActiveLogIfPossible()
                         }
                         everConnected = true
                     }
                     if (connectionState == ConnectionState.Disconnected && everConnected) {
+                        connectedAtElapsedMs = null
+                        _state.value = _state.value.copy(connectionDurationMs = 0L)
                         finalizeActiveLogIfNeeded(endReason = "disconnected")
                         stopAndCleanupAsync(reason = "disconnected")
                     }
@@ -507,7 +644,19 @@ class DisplayService : Service() {
             serviceScope.launch(Dispatchers.Default) {
                 val manager = getSystemService(NotificationManager::class.java)
                 while (isActive) {
-                    manager.notify(NOTIFICATION_ID, buildNotification(state.value))
+                    val startedAt = connectedAtElapsedMs
+                    val durationMs =
+                        if (startedAt != null && state.value.connectionState is ConnectionState.Connected) {
+                            (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
+                        } else {
+                            0L
+                        }
+                    if (state.value.connectionDurationMs != durationMs) {
+                        _state.value = _state.value.copy(connectionDurationMs = durationMs)
+                    }
+
+                    runCatching { manager.notify(NOTIFICATION_ID, buildNotification(state.value)) }
+                        .onFailure { Timber.w(it, "Notification update failed") }
                     delay(1_000)
                 }
             }
@@ -630,6 +779,8 @@ class DisplayService : Service() {
         connectionLogJob = null
         settingsJob?.cancel()
         settingsJob = null
+
+        connectedAtElapsedMs = null
 
         synchronized(decoderInitLock) {
             decoderInitialized = false

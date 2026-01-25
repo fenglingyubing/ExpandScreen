@@ -29,6 +29,7 @@ namespace ExpandScreen.UI.ViewModels
             RefreshDevicesCommand = new RelayCommand(ExecuteRefreshDevices);
             OpenSettingsCommand = new RelayCommand(ExecuteOpenSettings);
             OpenAnalyticsCommand = new RelayCommand(ExecuteOpenAnalytics);
+            OpenPerformanceTestCommand = new RelayCommand(ExecuteOpenPerformanceTest);
             ToggleThemeCommand = new RelayCommand(ExecuteToggleTheme);
 
             if (Application.Current is App app)
@@ -127,6 +128,7 @@ namespace ExpandScreen.UI.ViewModels
         public ICommand RefreshDevicesCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand OpenAnalyticsCommand { get; }
+        public ICommand OpenPerformanceTestCommand { get; }
         public ICommand ToggleThemeCommand { get; }
 
         #endregion
@@ -234,6 +236,16 @@ namespace ExpandScreen.UI.ViewModels
         {
             TryTrackFeature("OpenAnalytics");
             var window = new AnalyticsWindow
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            window.ShowDialog();
+        }
+
+        private void ExecuteOpenPerformanceTest()
+        {
+            TryTrackFeature("OpenPerformanceTest");
+            var window = new PerformanceTestWindow
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };

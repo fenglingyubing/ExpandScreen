@@ -136,6 +136,13 @@
                             <TextBlock Text="⚙" FontSize="18"/>
                         </Button>
 
+                        <!-- Performance Test -->
+                        <Button Style="{DynamicResource IconButtonStyle}"
+                               Command="{Binding OpenPerformanceTestCommand}"
+                               ToolTip="性能测试">
+                            <TextBlock Text="⏱" FontSize="16"/>
+                        </Button>
+
                         <!-- Analytics -->
                         <Button Style="{DynamicResource IconButtonStyle}"
                                Command="{Binding OpenAnalyticsCommand}"

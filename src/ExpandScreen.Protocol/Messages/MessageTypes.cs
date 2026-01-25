@@ -12,7 +12,15 @@ namespace ExpandScreen.Protocol.Messages
         Heartbeat = 0x05,
         HeartbeatAck = 0x06,
         AudioConfig = 0x07,
-        AudioFrame = 0x08
+        AudioFrame = 0x08,
+
+        // BOTH-302: 协议优化（自适应码率/FEC/关键帧请求/反馈）
+        ProtocolFeedback = 0x09,
+        BitrateControl = 0x0A,
+        KeyFrameRequest = 0x0B,
+        FecConfig = 0x0C,
+        FecShard = 0x0D,
+        FecGroupMetadata = 0x0E
     }
 
     /// <summary>

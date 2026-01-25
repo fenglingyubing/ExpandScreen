@@ -76,4 +76,77 @@ namespace ExpandScreen.Protocol.Messages
         public ulong OriginalTimestamp { get; set; }
         public ulong ResponseTimestamp { get; set; }
     }
+
+    /// <summary>
+    /// 协议反馈消息（BOTH-302）：接收端定期上报链路质量与丢消息情况，用于自适应码率/流控。
+    /// </summary>
+    public class ProtocolFeedbackMessage
+    {
+        public ulong TimestampMs { get; set; }
+        public double AverageRttMs { get; set; }
+        public long TotalBytesReceived { get; set; }
+        public long TotalMessagesReceived { get; set; }
+        public long TotalMessagesDelta { get; set; }
+        public long DroppedMessagesTotal { get; set; }
+        public long DroppedMessagesDelta { get; set; }
+        public double ReceiveRateBps { get; set; }
+    }
+
+    /// <summary>
+    /// 自适应码率控制消息（BOTH-302）：发送端广播当前目标码率，接收端可用于展示/诊断。
+    /// </summary>
+    public class BitrateControlMessage
+    {
+        public ulong TimestampMs { get; set; }
+        public int TargetBitrateBps { get; set; }
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// 关键帧请求消息（BOTH-302）：接收端在检测到丢帧/画面破损时请求发送端尽快发送I帧。
+    /// </summary>
+    public class KeyFrameRequestMessage
+    {
+        public ulong TimestampMs { get; set; }
+        public string Reason { get; set; } = string.Empty;
+        public uint? LastReceivedSequenceNumber { get; set; }
+    }
+
+    /// <summary>
+    /// FEC配置（BOTH-302）：FEC启用与分组参数。
+    /// </summary>
+    public class FecConfigMessage
+    {
+        public bool Enabled { get; set; }
+        public int DataShards { get; set; } = 8;
+        public int ParityShards { get; set; } = 2;
+    }
+
+    /// <summary>
+    /// FEC分片消息（BOTH-302）：用于在弱网/丢消息场景下恢复丢失的视频帧消息。
+    /// </summary>
+    public class FecShardMessage
+    {
+        public int GroupId { get; set; }
+        public int ShardIndex { get; set; }
+        public int DataShards { get; set; }
+        public int ParityShards { get; set; }
+        public bool IsParity { get; set; }
+        public int OriginalLength { get; set; }
+        public byte[] Data { get; set; } = Array.Empty<byte>();
+    }
+
+    /// <summary>
+    /// FEC分组元数据：用于恢复缺失分片时确定每个数据分片的原始长度。
+    /// </summary>
+    public class FecGroupMetadataMessage
+    {
+        public int GroupId { get; set; }
+        public MessageType ProtectedType { get; set; } = MessageType.VideoFrame;
+        public uint FirstSequenceNumber { get; set; }
+        public int DataShards { get; set; }
+        public int ParityShards { get; set; }
+        public int ShardLength { get; set; }
+        public int[] DataShardLengths { get; set; } = Array.Empty<int>();
+    }
 }

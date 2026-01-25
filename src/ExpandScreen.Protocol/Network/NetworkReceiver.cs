@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using ExpandScreen.Protocol.Messages;
 using ExpandScreen.Utils;
 
@@ -22,6 +23,8 @@ namespace ExpandScreen.Protocol.Network
         private long _totalBytesReceived;
         private long _totalMessagesReceived;
         private uint _lastSequenceNumber;
+        private long _droppedMessages;
+        private readonly Stopwatch _rateStopwatch;
 
         /// <summary>
         /// 消息接收事件
@@ -38,6 +41,11 @@ namespace ExpandScreen.Protocol.Network
         /// </summary>
         public event EventHandler? ConnectionClosed;
 
+        /// <summary>
+        /// 检测到序列号跳变（可能丢消息）
+        /// </summary>
+        public event EventHandler<MessageGapDetectedEventArgs>? MessageGapDetected;
+
         public NetworkReceiver(Stream stream, int maxPayloadSize = 10 * 1024 * 1024) // 默认最大10MB
         {
             _stream = stream ?? throw new ArgumentNullException(nameof(stream));
@@ -47,6 +55,8 @@ namespace ExpandScreen.Protocol.Network
             _totalBytesReceived = 0;
             _totalMessagesReceived = 0;
             _lastSequenceNumber = 0;
+            _droppedMessages = 0;
+            _rateStopwatch = Stopwatch.StartNew();
 
             // 启动接收循环
             _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token));
@@ -81,6 +91,16 @@ namespace ExpandScreen.Protocol.Network
                     if (_lastSequenceNumber > 0 && header.SequenceNumber != _lastSequenceNumber + 1)
                     {
                         long dropped = header.SequenceNumber - _lastSequenceNumber - 1;
+                        if (dropped > 0)
+                        {
+                            Interlocked.Add(ref _droppedMessages, dropped);
+                            MessageGapDetected?.Invoke(this, new MessageGapDetectedEventArgs
+                            {
+                                DroppedMessages = dropped,
+                                LastSequenceNumber = _lastSequenceNumber,
+                                CurrentSequenceNumber = header.SequenceNumber
+                            });
+                        }
                         LogHelper.Warning($"[NetworkReceiver] Detected {dropped} dropped message(s)");
                     }
                     _lastSequenceNumber = header.SequenceNumber;
@@ -185,7 +205,11 @@ namespace ExpandScreen.Protocol.Network
             {
                 TotalBytesReceived = _totalBytesReceived,
                 TotalMessagesReceived = _totalMessagesReceived,
-                LastSequenceNumber = _lastSequenceNumber
+                LastSequenceNumber = _lastSequenceNumber,
+                DroppedMessages = _droppedMessages,
+                ReceiveRateBps = _rateStopwatch.Elapsed.TotalSeconds > 0
+                    ? (_totalBytesReceived * 8.0) / _rateStopwatch.Elapsed.TotalSeconds
+                    : 0
             };
         }
 
@@ -241,5 +265,14 @@ namespace ExpandScreen.Protocol.Network
         public long TotalBytesReceived { get; set; }
         public long TotalMessagesReceived { get; set; }
         public uint LastSequenceNumber { get; set; }
+        public long DroppedMessages { get; set; }
+        public double ReceiveRateBps { get; set; }
+    }
+
+    public class MessageGapDetectedEventArgs : EventArgs
+    {
+        public long DroppedMessages { get; set; }
+        public uint LastSequenceNumber { get; set; }
+        public uint CurrentSequenceNumber { get; set; }
     }
 }

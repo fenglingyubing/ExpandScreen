@@ -136,6 +136,13 @@
                             <TextBlock Text="⚙" FontSize="18"/>
                         </Button>
 
+                        <!-- Analytics -->
+                        <Button Style="{DynamicResource IconButtonStyle}"
+                               Command="{Binding OpenAnalyticsCommand}"
+                               ToolTip="统计与分析">
+                            <TextBlock Text="∿" FontSize="18"/>
+                        </Button>
+
                         <!-- Minimize -->
                         <Button Style="{DynamicResource IconButtonStyle}"
                                Click="MinimizeButton_Click"

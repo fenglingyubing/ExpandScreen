@@ -38,6 +38,7 @@ namespace ExpandScreen.Services.Configuration
         public HotkeysConfig Hotkeys { get; set; } = new();
         public UpdateConfig Update { get; set; } = new();
         public LoggingConfig Logging { get; set; } = new();
+        public AnalyticsConfig Analytics { get; set; } = new();
 
         public static AppConfig CreateDefault() => new();
     }
@@ -106,5 +107,14 @@ namespace ExpandScreen.Services.Configuration
         public int RetainedFileCountLimit { get; set; } = 14;
         public int FileSizeLimitMb { get; set; } = 20;
         public bool RollOnFileSizeLimit { get; set; } = true;
+    }
+
+    public sealed class AnalyticsConfig
+    {
+        public bool Enabled { get; set; } = false;
+        public bool ConsentPrompted { get; set; } = false;
+        public int MaxHistoryEntries { get; set; } = 500;
+        public int MaxPerformanceSamples { get; set; } = 720;
+        public int PerformanceSampleIntervalSeconds { get; set; } = 10;
     }
 }

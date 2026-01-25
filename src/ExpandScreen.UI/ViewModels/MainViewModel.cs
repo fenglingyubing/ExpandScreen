@@ -28,6 +28,7 @@ namespace ExpandScreen.UI.ViewModels
             DisconnectDeviceCommand = new RelayCommand(ExecuteDisconnectDevice, CanExecuteDisconnectDevice);
             RefreshDevicesCommand = new RelayCommand(ExecuteRefreshDevices);
             OpenSettingsCommand = new RelayCommand(ExecuteOpenSettings);
+            OpenAnalyticsCommand = new RelayCommand(ExecuteOpenAnalytics);
             ToggleThemeCommand = new RelayCommand(ExecuteToggleTheme);
 
             if (Application.Current is App app)
@@ -125,6 +126,7 @@ namespace ExpandScreen.UI.ViewModels
         public ICommand DisconnectDeviceCommand { get; }
         public ICommand RefreshDevicesCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+        public ICommand OpenAnalyticsCommand { get; }
         public ICommand ToggleThemeCommand { get; }
 
         #endregion
@@ -171,6 +173,7 @@ namespace ExpandScreen.UI.ViewModels
                 device.MonitorId = result.Session.MonitorId;
             }
 
+            TryTrackConnected(device.DeviceId);
             StatusText = $"已连接到 {device.DeviceName}";
         }
 
@@ -201,6 +204,7 @@ namespace ExpandScreen.UI.ViewModels
             device.MonitorId = null;
             device.SessionProfile = string.Empty;
             device.LastError = null;
+            TryTrackDisconnected(device.DeviceId);
             StatusText = "就绪";
 
             ((RelayCommand)ConnectDeviceCommand).RaiseCanExecuteChanged();
@@ -213,15 +217,27 @@ namespace ExpandScreen.UI.ViewModels
 
             await _deviceDiscoveryService.TriggerScanAsync();
             StatusText = $"找到 {Devices.Count} 个设备";
+            TryTrackFeature("RefreshDevices");
         }
 
         private void ExecuteOpenSettings()
         {
+            TryTrackFeature("OpenSettings");
             var settingsWindow = new SettingsWindow
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
             settingsWindow.ShowDialog();
+        }
+
+        private void ExecuteOpenAnalytics()
+        {
+            TryTrackFeature("OpenAnalytics");
+            var window = new AnalyticsWindow
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            window.ShowDialog();
         }
 
         private async void ExecuteToggleTheme()
@@ -238,11 +254,42 @@ namespace ExpandScreen.UI.ViewModels
             var updated = app.ConfigService.GetSnapshot();
             updated.General.Theme = newTheme;
             await app.ConfigService.SaveAsync(updated);
+            TryTrackFeature("ToggleTheme");
         }
 
         #endregion
 
         #region Helper Methods
+
+        private static void TryTrackFeature(string name)
+        {
+            if (Application.Current is not App app)
+            {
+                return;
+            }
+
+            app.AnalyticsService.TrackFeatureUsed(name);
+        }
+
+        private static void TryTrackConnected(string deviceId)
+        {
+            if (Application.Current is not App app)
+            {
+                return;
+            }
+
+            app.AnalyticsService.TrackConnected(deviceId);
+        }
+
+        private static void TryTrackDisconnected(string deviceId)
+        {
+            if (Application.Current is not App app)
+            {
+                return;
+            }
+
+            app.AnalyticsService.TrackDisconnected(deviceId);
+        }
 
         private static ConnectionManagerOptions CreateConnectionOptionsFromConfig()
         {

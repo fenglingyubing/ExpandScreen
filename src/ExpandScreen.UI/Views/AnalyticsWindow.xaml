@@ -1,0 +1,481 @@
+<Window x:Class="ExpandScreen.UI.Views.AnalyticsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:ExpandScreen.UI.Converters"
+        Title="统计与分析"
+        Height="640"
+        Width="980"
+        MinHeight="560"
+        MinWidth="920"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:ProgressToWidthConverter x:Key="ProgressToWidthConverter"/>
+
+        <LinearGradientBrush x:Key="HeaderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#22151B2D" Offset="0"/>
+            <GradientStop Color="#33151B2D" Offset="0.25"/>
+            <GradientStop Color="#2500D9FF" Offset="1"/>
+        </LinearGradientBrush>
+
+        <DrawingBrush x:Key="GridPatternBrush"
+                      TileMode="Tile"
+                      Viewport="0,0,24,24"
+                      ViewportUnits="Absolute"
+                      Opacity="0.2">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="Transparent">
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="{DynamicResource BorderBrush}" Thickness="1"/>
+                        </GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <LineGeometry StartPoint="0,0" EndPoint="24,0"/>
+                                <LineGeometry StartPoint="0,0" EndPoint="0,24"/>
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+
+        <Style x:Key="MetricLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource UIFont}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+
+        <Style x:Key="MetricValueStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource MonoFont}"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+
+        <Style x:Key="PillButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="{DynamicResource UIFont}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="999"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter TargetName="border" Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ThinProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryGradientBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource BackgroundBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="999"/>
+                            <Border Background="{TemplateBinding Foreground}"
+                                    CornerRadius="999"
+                                    HorizontalAlignment="Left">
+                                <Border.Width>
+                                    <MultiBinding Converter="{StaticResource ProgressToWidthConverter}">
+                                        <Binding RelativeSource="{RelativeSource TemplatedParent}" Path="ActualWidth"/>
+                                        <Binding RelativeSource="{RelativeSource TemplatedParent}" Path="Value"/>
+                                        <Binding RelativeSource="{RelativeSource TemplatedParent}" Path="Maximum"/>
+                                    </MultiBinding>
+                                </Border.Width>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource BackgroundBrush}"
+            CornerRadius="12"
+            Margin="8">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="22" ShadowDepth="0" Opacity="0.45"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="52"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Grid.Row="0"
+                    Background="{StaticResource HeaderBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="12,12,0,0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0">
+                        <Border Width="26" Height="26" CornerRadius="7" Background="{DynamicResource PrimaryGradientBrush}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="{DynamicResource PrimaryColor}" BlurRadius="14" ShadowDepth="0" Opacity="0.35"/>
+                            </Border.Effect>
+                            <TextBlock Text="∿"
+                                       FontFamily="{DynamicResource UIFont}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BackgroundBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Margin="12,0,0,0">
+                            <TextBlock Text="统计与分析"
+                                       FontFamily="{DynamicResource UIFont}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding StatusText}"
+                                       FontFamily="{DynamicResource UIFont}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Style="{DynamicResource IconButtonStyle}"
+                            Click="CloseButton_Click"
+                            Margin="0,0,8,0"
+                            ToolTip="关闭">
+                        <TextBlock Text="✕" FontSize="14"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Content -->
+            <Grid Grid.Row="1">
+                <Rectangle Fill="{StaticResource GridPatternBrush}" IsHitTestVisible="False"/>
+
+                <Grid Margin="24">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Consent -->
+                    <Border Grid.Row="0"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="16"
+                            Margin="0,0,0,16"
+                            Visibility="{Binding ConsentPromptVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="启用本机统计？"
+                                           FontFamily="{DynamicResource UIFont}"
+                                           FontWeight="SemiBold"
+                                           FontSize="14"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Margin="0,6,0,0"
+                                           TextWrapping="Wrap"
+                                           FontFamily="{DynamicResource UIFont}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Text="记录：使用时长、连接次数、功能使用、CPU/内存采样。仅本机保存、不上传；连接相关会匿名化。"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource PillButtonStyle}"
+                                        Margin="0,0,10,0"
+                                        Command="{Binding DeclineAnalyticsCommand}"
+                                        Content="不启用"/>
+                                <Button Style="{DynamicResource PrimaryButtonStyle}"
+                                        Command="{Binding EnableAnalyticsCommand}"
+                                        Padding="18,9"
+                                        Content="启用"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="360"/>
+                            <ColumnDefinition Width="18"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left -->
+                        <StackPanel Grid.Column="0">
+                            <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <TextBlock Text="总览"
+                                               FontFamily="{DynamicResource UIFont}"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               Margin="0,0,0,12"/>
+
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource MetricLabelStyle}" Text="启动次数"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource MetricValueStyle}" Text="{Binding LaunchCountText}"/>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource MetricLabelStyle}" Text="累计使用时长"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource MetricValueStyle}" Text="{Binding TotalAppTimeText}"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,14,0,0" Style="{StaticResource MetricLabelStyle}" Text="连接次数"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource MetricValueStyle}" Text="{Binding TotalConnectionsText}"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,14,0,0" Style="{StaticResource MetricLabelStyle}" Text="累计连接时长"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource MetricValueStyle}" Text="{Binding TotalConnectedTimeText}"/>
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                        <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                Command="{Binding ExportReportCommand}"
+                                                Content="导出报告"
+                                                Padding="16,9"
+                                                Margin="0,0,10,0"/>
+                                        <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                Command="{Binding ClearDataCommand}"
+                                                Content="清除数据"
+                                                Padding="16,9"/>
+                                    </StackPanel>
+
+                                    <Border Margin="0,14,0,0"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="0,1,0,0"
+                                            Opacity="0.7"/>
+
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,12,0,0">
+                                        <TextBlock Style="{StaticResource MetricLabelStyle}" Text="统计开关"/>
+                                        <Button Style="{StaticResource PillButtonStyle}"
+                                                Margin="10,0,0,0"
+                                                Command="{Binding DisableAnalyticsCommand}"
+                                                Content="停止统计"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{DynamicResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="功能使用（Top）"
+                                               FontFamily="{DynamicResource UIFont}"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               Margin="0,0,0,10"/>
+
+                                    <ItemsControl ItemsSource="{Binding TopFeatures}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,6,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   FontFamily="{DynamicResource UIFont}"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <ProgressBar Style="{StaticResource ThinProgressBarStyle}"
+                                                                     Margin="0,6,0,0"
+                                                                     Maximum="1"
+                                                                     Value="{Binding Ratio}"/>
+                                                    </StackPanel>
+
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Count}"
+                                                               FontFamily="{DynamicResource MonoFont}"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               Margin="12,0,0,0"
+                                                               VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Margin="0,12,0,0"
+                                               FontFamily="{DynamicResource UIFont}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextDisabledBrush}"
+                                               Text="未启用时不会记录功能使用。"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Right -->
+                        <StackPanel Grid.Column="2">
+                            <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0"
+                                                   Text="性能采样（最近）"
+                                                   FontFamily="{DynamicResource UIFont}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource MetricLabelStyle}" Text="CPU"/>
+                                            <TextBlock FontFamily="{DynamicResource MonoFont}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       Margin="8,0,0,0"
+                                                       Text="{Binding CpuNowText}"/>
+                                            <TextBlock Style="{StaticResource MetricLabelStyle}" Margin="14,0,0,0" Text="RAM"/>
+                                            <TextBlock FontFamily="{DynamicResource MonoFont}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       Margin="8,0,0,0"
+                                                       Text="{Binding MemNowText}"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Border Margin="0,12,0,0"
+                                            Background="{DynamicResource BackgroundBrush}"
+                                            CornerRadius="10"
+                                            Padding="14">
+                                        <StackPanel>
+                                            <TextBlock Text="CPU %"
+                                                       FontFamily="{DynamicResource UIFont}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <Canvas Height="80" Margin="0,10,0,0">
+                                                <Polyline Points="{Binding CpuSparkline}"
+                                                          Stroke="{DynamicResource PrimaryBrush}"
+                                                          StrokeThickness="2"
+                                                          StrokeLineJoin="Round"
+                                                          StrokeStartLineCap="Round"
+                                                          StrokeEndLineCap="Round"/>
+                                            </Canvas>
+
+                                            <TextBlock Text="Working Set (MB)"
+                                                       Margin="0,10,0,0"
+                                                       FontFamily="{DynamicResource UIFont}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <Canvas Height="80" Margin="0,10,0,0">
+                                                <Polyline Points="{Binding MemSparkline}"
+                                                          Stroke="{DynamicResource SuccessBrush}"
+                                                          StrokeThickness="2"
+                                                          StrokeLineJoin="Round"
+                                                          StrokeStartLineCap="Round"
+                                                          StrokeEndLineCap="Round"/>
+                                            </Canvas>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{DynamicResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="事件历史（最近）"
+                                               FontFamily="{DynamicResource UIFont}"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               Margin="0,0,0,10"/>
+
+                                    <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="10" Padding="10">
+                                        <ListView ItemsSource="{Binding RecentEvents}"
+                                                  BorderThickness="0"
+                                                  Background="Transparent">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,6,0,6">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="120"/>
+                                                            <ColumnDefinition Width="96"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding TimeText}"
+                                                                   FontFamily="{DynamicResource MonoFont}"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding TypeText}"
+                                                                   FontFamily="{DynamicResource MonoFont}"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding DetailText}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   FontFamily="{DynamicResource UIFont}"
+                                                                   FontSize="12"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

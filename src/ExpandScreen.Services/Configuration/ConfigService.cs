@@ -273,6 +273,7 @@ namespace ExpandScreen.Services.Configuration
             config.Hotkeys ??= new HotkeysConfig();
             config.Update ??= new UpdateConfig();
             config.Logging ??= new LoggingConfig();
+            config.Analytics ??= new AnalyticsConfig();
 
             if (config.Video.Width < 320)
             {
@@ -416,6 +417,25 @@ namespace ExpandScreen.Services.Configuration
             {
                 warnings.Add("logging.fileSizeLimitMb out of range; clamped to 1-1024.");
                 config.Logging.FileSizeLimitMb = Math.Clamp(config.Logging.FileSizeLimitMb, 1, 1024);
+            }
+
+            // Analytics
+            if (config.Analytics.MaxHistoryEntries < 0 || config.Analytics.MaxHistoryEntries > 10_000)
+            {
+                warnings.Add("analytics.maxHistoryEntries out of range; clamped to 0-10000.");
+                config.Analytics.MaxHistoryEntries = Math.Clamp(config.Analytics.MaxHistoryEntries, 0, 10_000);
+            }
+
+            if (config.Analytics.MaxPerformanceSamples < 0 || config.Analytics.MaxPerformanceSamples > 20_000)
+            {
+                warnings.Add("analytics.maxPerformanceSamples out of range; clamped to 0-20000.");
+                config.Analytics.MaxPerformanceSamples = Math.Clamp(config.Analytics.MaxPerformanceSamples, 0, 20_000);
+            }
+
+            if (config.Analytics.PerformanceSampleIntervalSeconds < 0 || config.Analytics.PerformanceSampleIntervalSeconds > 3600)
+            {
+                warnings.Add("analytics.performanceSampleIntervalSeconds out of range; clamped to 0-3600.");
+                config.Analytics.PerformanceSampleIntervalSeconds = Math.Clamp(config.Analytics.PerformanceSampleIntervalSeconds, 0, 3600);
             }
 
             return warnings;

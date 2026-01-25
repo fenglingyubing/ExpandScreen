@@ -1,4 +1,5 @@
 using System.Windows;
+using ExpandScreen.Services.Analytics;
 using ExpandScreen.Services.Configuration;
 using ExpandScreen.UI.Services;
 using ExpandScreen.UI.ViewModels;
@@ -12,6 +13,7 @@ namespace ExpandScreen.UI
         private GlobalHotkeyService? _hotkeyService;
         public bool IsShuttingDown { get; private set; }
         public ConfigService ConfigService { get; } = new();
+        public AnalyticsService AnalyticsService { get; } = new();
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -29,11 +31,16 @@ namespace ExpandScreen.UI
             ThemeManager.ApplyTheme(config.General.Theme);
             AutoStartService.Apply(config.General.AutoStart);
 
+            AnalyticsService.InitializeAsync().GetAwaiter().GetResult();
+            AnalyticsService.ApplyOptions(ToAnalyticsOptions(config));
+            AnalyticsService.TrackAppStarted();
+
             ConfigService.ConfigChanged += (_, args) =>
             {
                 SerilogConfigurator.Apply(args.Config.Logging);
                 ThemeManager.ApplyTheme(args.Config.General.Theme);
                 AutoStartService.Apply(args.Config.General.AutoStart);
+                AnalyticsService.ApplyOptions(ToAnalyticsOptions(args.Config));
 
                 if (_hotkeyService != null)
                 {
@@ -48,6 +55,17 @@ namespace ExpandScreen.UI
 
             // Initialize tray icon
             _trayIconService = new TrayIconService();
+        }
+
+        private static AnalyticsOptions ToAnalyticsOptions(AppConfig config)
+        {
+            return new AnalyticsOptions
+            {
+                Enabled = config.Analytics.Enabled,
+                MaxHistoryEntries = config.Analytics.MaxHistoryEntries,
+                MaxPerformanceSamples = config.Analytics.MaxPerformanceSamples,
+                PerformanceSampleIntervalSeconds = config.Analytics.PerformanceSampleIntervalSeconds
+            };
         }
 
         internal void InitializeHotkeys(Window mainWindow)
@@ -122,6 +140,14 @@ namespace ExpandScreen.UI
             _hotkeyService?.Dispose();
             _trayIconService?.Dispose();
             ConfigService.Dispose();
+            try
+            {
+                AnalyticsService.FlushAsync().GetAwaiter().GetResult();
+            }
+            catch
+            {
+            }
+            AnalyticsService.Dispose();
             Log.Information("ExpandScreen 退出");
             Log.CloseAndFlush();
             base.OnExit(e);

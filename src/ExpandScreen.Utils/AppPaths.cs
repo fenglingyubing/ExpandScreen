@@ -24,6 +24,10 @@ namespace ExpandScreen.Utils
         {
             return Path.Combine(GetLocalAppDataDirectory(), "diagnostics");
         }
+
+        public static string GetAnalyticsDirectory()
+        {
+            return Path.Combine(GetLocalAppDataDirectory(), "analytics");
+        }
     }
 }
-

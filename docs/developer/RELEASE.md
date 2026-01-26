@@ -1,12 +1,13 @@
 # Release 指南
 
-本文档说明如何生成 Windows 发布包（任务 6.2.1 / REL-001）。
+本文档说明如何生成 Windows/Android 发布包（任务 6.2.x / REL-00x）。
 
 ## 目标产物
 
 - Windows 发行版（`dotnet publish` 输出）
 - Windows 安装包（Inno Setup，`.exe`）
 -（可选）随包附带 `adb`（Google platform-tools）与驱动构建产物
+- Android Release APK（签名 + R8/资源瘦身 + 多 ABI 输出）
 
 ## 前置条件
 
@@ -14,6 +15,7 @@
 - .NET 8 SDK
 -（可选）Inno Setup（提供 `iscc.exe`）
 -（可选）驱动构建环境：Visual Studio + WDK（用于生成 `.sys/.inf/.cat`）
+- Android Studio（或 Android SDK + JDK 17）
 
 ## 一键构建（推荐）
 
@@ -63,3 +65,58 @@
 
 使用 `signtool.exe` 或企业签名方案进行签名。
 
+---
+
+## Android 发布包（REL-002）
+
+### 1) 配置签名（必需）
+
+方式 A：本地 `keystore.properties`（推荐）
+
+1. 生成 keystore（示例）：
+
+```powershell
+keytool -genkeypair -v -keystore expandscreen-release.jks -alias expandscreen -keyalg RSA -keysize 2048 -validity 10000
+```
+
+2. 在 `android-client/` 下创建 `keystore.properties`（参考 `android-client/keystore.properties.example`）：
+
+```properties
+storeFile=expandscreen-release.jks
+storePassword=YOUR_STORE_PASSWORD
+keyAlias=expandscreen
+keyPassword=YOUR_KEY_PASSWORD
+```
+
+> 注意：`keystore.properties` 已加入忽略列表，不要提交到仓库。
+
+方式 B：环境变量（适用于 CI）
+
+- `ANDROID_KEYSTORE_FILE`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+### 2) 一键构建（推荐）
+
+```powershell
+./scripts/release/android/Build-AndroidRelease.ps1
+```
+
+默认输出目录：`artifacts/android/apk/<versionName>-<versionCode>/`
+
+### 3) 可选：包含 x86_64 输出
+
+```powershell
+./scripts/release/android/Build-AndroidRelease.ps1 -IncludeX86_64
+```
+
+### 4) 直接用 Gradle 构建（可选）
+
+```powershell
+pushd android-client
+./gradlew.bat :app:assembleRelease --no-daemon
+popd
+```
+
+如需包含 x86_64：`./gradlew.bat -PincludeX86_64=true :app:assembleRelease --no-daemon`

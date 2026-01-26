@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -10,6 +13,27 @@ plugins {
 android {
     namespace = "com.expandscreen"
     compileSdk = 34
+
+    val includeX86_64 = providers.gradleProperty("includeX86_64").orNull == "true"
+
+    val keystoreProperties = Properties()
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val hasKeystorePropertiesFile = keystorePropertiesFile.exists()
+    if (hasKeystorePropertiesFile) {
+        FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
+    }
+
+    val envStoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+    val envStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+    val envKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+    val envKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+    val hasEnvSigning =
+        !envStoreFile.isNullOrBlank() &&
+            !envStorePassword.isNullOrBlank() &&
+            !envKeyAlias.isNullOrBlank() &&
+            !envKeyPassword.isNullOrBlank()
+
+    val hasReleaseSigning = hasKeystorePropertiesFile || hasEnvSigning
 
     defaultConfig {
         applicationId = "com.expandscreen"
@@ -24,13 +48,49 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasKeystorePropertiesFile) {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            } else if (hasEnvSigning) {
+                storeFile = rootProject.file(envStoreFile!!)
+                storePassword = envStorePassword
+                keyAlias = envKeyAlias
+                keyPassword = envKeyPassword
+            }
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            val abis =
+                mutableListOf(
+                    "arm64-v8a",
+                    "armeabi-v7a"
+                ).apply {
+                    if (includeX86_64) add("x86_64")
+                }
+            include(*abis.toTypedArray())
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             isMinifyEnabled = false

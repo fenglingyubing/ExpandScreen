@@ -114,24 +114,29 @@ Run tests:
 
 1. Generate release keystore (first time only):
    ```bash
-   keytool -genkey -v -keystore expandscreen-release.keystore \
+   keytool -genkeypair -v -keystore expandscreen-release.jks \
      -alias expandscreen -keyalg RSA -keysize 2048 -validity 10000
    ```
 
-2. Create `keystore.properties` in project root:
+2. Create `keystore.properties` in `android-client/` (see `keystore.properties.example`):
    ```properties
-   storeFile=expandscreen-release.keystore
+   storeFile=expandscreen-release.jks
    storePassword=<your-password>
    keyAlias=expandscreen
    keyPassword=<your-key-password>
    ```
 
-3. Build release APK:
+3. Build release APK (signed + minified + resource shrink + ABI splits):
    ```bash
    ./gradlew assembleRelease
    ```
 
-Output: `app/build/outputs/apk/release/app-release.apk`
+Output: `app/build/outputs/apk/release/` (e.g. `app-arm64-v8a-release.apk`, `app-armeabi-v7a-release.apk`).
+
+Optional: include x86_64 output:
+```bash
+./gradlew -PincludeX86_64=true assembleRelease
+```
 
 ## 🎨 UI/UX Design
 

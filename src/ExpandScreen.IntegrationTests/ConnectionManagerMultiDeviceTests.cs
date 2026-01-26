@@ -1,3 +1,4 @@
+using ExpandScreen.Core.Encode;
 using ExpandScreen.Services.Connection;
 using ExpandScreen.Services.Driver;
 using Xunit;
@@ -92,6 +93,30 @@ namespace ExpandScreen.IntegrationTests
             }
         }
 
+        private sealed class FakeEncoder : IVideoEncoder
+        {
+            private readonly Func<int, int, int, int, bool> _shouldFailInitialize;
+
+            public FakeEncoder(Func<int, int, int, int, bool> shouldFailInitialize)
+            {
+                _shouldFailInitialize = shouldFailInitialize;
+            }
+
+            public void Initialize(int width, int height, int framerate, int bitrate)
+            {
+                if (_shouldFailInitialize(width, height, framerate, bitrate))
+                {
+                    throw new InvalidOperationException($"Not supported: {width}x{height}@{framerate}");
+                }
+            }
+
+            public byte[]? Encode(byte[] frameData) => Array.Empty<byte>();
+
+            public void Dispose()
+            {
+            }
+        }
+
         [Fact]
         public async Task Connect_MultipleDevices_UsesDegradedProfileAfterThreshold()
         {
@@ -171,6 +196,57 @@ namespace ExpandScreen.IntegrationTests
             Assert.Equal(0u, driver.MonitorCount);
             Assert.Empty(manager.Sessions);
         }
+
+        [Fact]
+        public async Task Connect_HighFramerateInitFails_FallsBackToLowerFramerate()
+        {
+            var options = new ConnectionManagerOptions
+            {
+                EnableVirtualDisplays = false,
+                MaxHighQualitySessions = 99,
+                PrimaryProfile = new SessionVideoProfile(1920, 1080, 120, 10_000_000),
+                DegradedProfile = new SessionVideoProfile(1280, 720, 60, 3_000_000),
+                EncoderFactory = _ => new FakeEncoder((_, _, fr, _) => fr > 60)
+            };
+
+            using var manager = new ConnectionManager(
+                options: options,
+                portAllocator: new FakePortAllocator(23000),
+                connectionFactory: (_, _) => new FakeConnection(),
+                virtualDisplayDriverFactory: () => new FakeVirtualDisplayDriver(maxMonitors: 4));
+
+            var result = await manager.ConnectAsync("device-1");
+            Assert.True(result.Success);
+            Assert.True(result.UsedDegradedProfile);
+            Assert.NotNull(result.Session);
+            Assert.Equal(60, result.Session!.VideoProfile.RefreshRate);
+            Assert.Equal(1920, result.Session.VideoProfile.Width);
+        }
+
+        [Fact]
+        public async Task Connect_HighResolutionInitFails_FallsBackToLowerResolution()
+        {
+            var options = new ConnectionManagerOptions
+            {
+                EnableVirtualDisplays = false,
+                MaxHighQualitySessions = 99,
+                PrimaryProfile = new SessionVideoProfile(1920, 1080, 60, 5_000_000),
+                DegradedProfile = new SessionVideoProfile(1280, 720, 60, 3_000_000),
+                EncoderFactory = _ => new FakeEncoder((w, h, _, _) => w > 1280 || h > 720)
+            };
+
+            using var manager = new ConnectionManager(
+                options: options,
+                portAllocator: new FakePortAllocator(24000),
+                connectionFactory: (_, _) => new FakeConnection(),
+                virtualDisplayDriverFactory: () => new FakeVirtualDisplayDriver(maxMonitors: 4));
+
+            var result = await manager.ConnectAsync("device-1");
+            Assert.True(result.Success);
+            Assert.True(result.UsedDegradedProfile);
+            Assert.NotNull(result.Session);
+            Assert.Equal(1280, result.Session!.VideoProfile.Width);
+            Assert.Equal(720, result.Session.VideoProfile.Height);
+        }
     }
 }
-

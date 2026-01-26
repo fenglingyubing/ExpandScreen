@@ -51,24 +51,16 @@ namespace ExpandScreen.Core.Encode
                     return new FFmpegEncoder(config);
 
                 case EncoderType.NVENC:
-                    if (FFmpegEncoderCapabilities.IsEncoderAvailable(NvencEncoder.EncoderName))
-                    {
-                        LogHelper.Info("创建NVENC硬件编码器");
-                        return new NvencEncoder(config);
-                    }
-
-                    LogHelper.Warning("NVENC硬件编码器不可用（FFmpeg未启用或环境不支持），回退到FFmpeg");
-                    return new FFmpegEncoder(config);
+                    return CreateHardwarePreferredEncoder(
+                        preferred: ("NVENC(h264_nvenc)", NvencEncoder.EncoderName, () => new NvencEncoder(config)),
+                        secondary: ("QuickSync(h264_qsv)", QuickSyncEncoder.EncoderName, () => new QuickSyncEncoder(config)),
+                        fallback: ("FFmpeg(H.264 default)", () => new FFmpegEncoder(config)));
 
                 case EncoderType.QuickSync:
-                    if (FFmpegEncoderCapabilities.IsEncoderAvailable(QuickSyncEncoder.EncoderName))
-                    {
-                        LogHelper.Info("创建QuickSync硬件编码器");
-                        return new QuickSyncEncoder(config);
-                    }
-
-                    LogHelper.Warning("QuickSync硬件编码器不可用（FFmpeg未启用或环境不支持），回退到FFmpeg");
-                    return new FFmpegEncoder(config);
+                    return CreateHardwarePreferredEncoder(
+                        preferred: ("QuickSync(h264_qsv)", QuickSyncEncoder.EncoderName, () => new QuickSyncEncoder(config)),
+                        secondary: ("NVENC(h264_nvenc)", NvencEncoder.EncoderName, () => new NvencEncoder(config)),
+                        fallback: ("FFmpeg(H.264 default)", () => new FFmpegEncoder(config)));
 
                 case EncoderType.Auto:
                     return CreateAutoEncoder(config);
@@ -87,6 +79,39 @@ namespace ExpandScreen.Core.Encode
         {
             LogHelper.Info("创建自动选择编码器（Initialize时按优先级尝试并回退）");
             return new AutoVideoEncoder(config);
+        }
+
+        private static IVideoEncoder CreateHardwarePreferredEncoder(
+            (string Label, string EncoderName, Func<IVideoEncoder> Create) preferred,
+            (string Label, string EncoderName, Func<IVideoEncoder> Create) secondary,
+            (string Label, Func<IVideoEncoder> Create) fallback)
+        {
+            var candidates = new List<(string Name, Func<IVideoEncoder> Create)>();
+
+            if (FFmpegEncoderCapabilities.IsEncoderAvailable(preferred.EncoderName))
+            {
+                candidates.Add((preferred.Label, preferred.Create));
+            }
+            else
+            {
+                LogHelper.Warning($"{preferred.Label} 不可用（FFmpeg未启用或环境不支持）。");
+            }
+
+            if (FFmpegEncoderCapabilities.IsEncoderAvailable(secondary.EncoderName))
+            {
+                candidates.Add((secondary.Label, secondary.Create));
+            }
+
+            candidates.Add((fallback.Label, fallback.Create));
+
+            if (candidates.Count == 1)
+            {
+                LogHelper.Warning("硬件编码器不可用（FFmpeg未启用或环境不支持），使用FFmpeg");
+                return fallback.Create();
+            }
+
+            LogHelper.Info($"创建硬件优先编码器（失败将回退到 {fallback.Label}）");
+            return new FallbackVideoEncoder(candidates);
         }
 
         /// <summary>

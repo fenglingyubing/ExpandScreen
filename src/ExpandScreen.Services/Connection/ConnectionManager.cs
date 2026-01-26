@@ -114,9 +114,11 @@ namespace ExpandScreen.Services.Connection
                 return new ConnectDeviceResult(false, null, false, "deviceId is required.");
             }
 
-            DeviceSession session;
             int maxSessions = _options.DefaultMaxSessions;
-            bool useDegradedProfile;
+            var baseProfile = _options.PrimaryProfile;
+            bool baseUsedDegradedProfile = false;
+            bool usedDegradedProfile = false;
+            DeviceSession? session = null;
 
             await _sessionsLock.WaitAsync(cancellationToken);
             try
@@ -138,29 +140,86 @@ namespace ExpandScreen.Services.Connection
                     return new ConnectDeviceResult(false, null, false, $"连接数已达上限（{maxSessions}）。");
                 }
 
-                useDegradedProfile = _sessions.Count >= _options.MaxHighQualitySessions;
-                var profile = useDegradedProfile ? _options.DegradedProfile : _options.PrimaryProfile;
-
-                int localPort = _portAllocator.AllocateEphemeralPort();
-                int remotePort = _options.RemotePort;
-
-                IConnectionManager connection = _connectionFactory(localPort, remotePort);
-
-                var encoder = _options.EncoderFactory(profile) ?? new NoopVideoEncoder();
-                encoder.Initialize(profile.Width, profile.Height, profile.RefreshRate, profile.BitrateBps);
-
-                var encodingService = new VideoEncodingService(encoder);
-
-                session = new DeviceSession(deviceId, connection, encodingService, localPort, remotePort, profile)
-                {
-                    State = DeviceSessionState.Connecting
-                };
-
-                _sessions[deviceId] = session;
+                baseUsedDegradedProfile = _sessions.Count >= _options.MaxHighQualitySessions;
+                baseProfile = baseUsedDegradedProfile ? _options.DegradedProfile : _options.PrimaryProfile;
             }
             finally
             {
                 _sessionsLock.Release();
+            }
+
+            Exception? lastInitError = null;
+            foreach (var profile in BuildCompatibilityFallbackProfiles(baseProfile, _options.DegradedProfile))
+            {
+                int localPort = _portAllocator.AllocateEphemeralPort();
+                int remotePort = _options.RemotePort;
+                IConnectionManager connection = _connectionFactory(localPort, remotePort);
+
+                try
+                {
+                    var encoder = _options.EncoderFactory(profile) ?? new NoopVideoEncoder();
+                    encoder.Initialize(profile.Width, profile.Height, profile.RefreshRate, profile.BitrateBps);
+
+                    var encodingService = new VideoEncodingService(encoder);
+                    var candidateSession = new DeviceSession(deviceId, connection, encodingService, localPort, remotePort, profile)
+                    {
+                        State = DeviceSessionState.Connecting
+                    };
+
+                    await _sessionsLock.WaitAsync(cancellationToken);
+                    try
+                    {
+                        maxSessions = TryGetDriverMaxMonitorsOrDefault(maxSessions);
+                        if (_sessions.Count >= maxSessions)
+                        {
+                            candidateSession.Dispose();
+                            return new ConnectDeviceResult(false, null, false, $"连接数已达上限（{maxSessions}）。");
+                        }
+
+                        if (_sessions.ContainsKey(deviceId))
+                        {
+                            candidateSession.Dispose();
+                            return new ConnectDeviceResult(false, null, false, "会话已存在。");
+                        }
+
+                        _sessions[deviceId] = candidateSession;
+                    }
+                    finally
+                    {
+                        _sessionsLock.Release();
+                    }
+
+                    session = candidateSession;
+                    usedDegradedProfile = baseUsedDegradedProfile || !Equals(profile, baseProfile);
+
+                    if (usedDegradedProfile && !Equals(profile, baseProfile))
+                    {
+                        LogHelper.Warning($"兼容性回退：使用 {profile.Summary} 替代 {baseProfile.Summary}");
+                    }
+
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    lastInitError = ex;
+                    LogHelper.Warning($"初始化会话失败（profile={profile.Summary}）：{ex.GetBaseException().Message}");
+
+                    try
+                    {
+                        if (connection is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            if (session == null)
+            {
+                return new ConnectDeviceResult(false, null, baseUsedDegradedProfile, lastInitError?.GetBaseException().Message ?? "会话初始化失败。");
             }
 
             EmitSessionUpdated(CreateSnapshot(session));
@@ -180,7 +239,7 @@ namespace ExpandScreen.Services.Connection
                 if (!connected)
                 {
                     await FailAndRemoveSessionAsync(deviceId, "连接失败（返回 false）");
-                    return new ConnectDeviceResult(false, null, useDegradedProfile, "连接失败。");
+                    return new ConnectDeviceResult(false, null, usedDegradedProfile, "连接失败。");
                 }
 
                 DeviceSessionSnapshot? connectedSnapshot = null;
@@ -201,17 +260,117 @@ namespace ExpandScreen.Services.Connection
 
                 if (connectedSnapshot == null)
                 {
-                    return new ConnectDeviceResult(false, null, useDegradedProfile, "会话已被移除。");
+                    return new ConnectDeviceResult(false, null, usedDegradedProfile, "会话已被移除。");
                 }
 
                 EmitSessionUpdated(connectedSnapshot);
-                return new ConnectDeviceResult(true, connectedSnapshot, useDegradedProfile, null);
+                return new ConnectDeviceResult(true, connectedSnapshot, usedDegradedProfile, null);
             }
             catch (Exception ex)
             {
                 await FailAndRemoveSessionAsync(deviceId, ex.Message);
-                return new ConnectDeviceResult(false, null, useDegradedProfile, ex.Message);
+                return new ConnectDeviceResult(false, null, usedDegradedProfile, ex.Message);
             }
+        }
+
+        private static IReadOnlyList<SessionVideoProfile> BuildCompatibilityFallbackProfiles(
+            SessionVideoProfile preferred,
+            SessionVideoProfile degraded)
+        {
+            var profiles = new List<SessionVideoProfile>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void Add(SessionVideoProfile profile)
+            {
+                var key = $"{profile.Width}x{profile.Height}@{profile.RefreshRate}:{profile.BitrateBps}";
+                if (seen.Add(key))
+                {
+                    profiles.Add(profile);
+                }
+            }
+
+            SessionVideoProfile WithFps(SessionVideoProfile p, int fps)
+            {
+                fps = Math.Max(15, fps);
+                var recommended = VideoEncoderFactory.GetRecommendedConfig(p.Width, p.Height, fps).Bitrate;
+                var bitrate = Math.Min(p.BitrateBps, recommended);
+                return new SessionVideoProfile(p.Width, p.Height, fps, bitrate);
+            }
+
+            SessionVideoProfile ScaleDown(SessionVideoProfile p, int maxWidth, int maxHeight)
+            {
+                if (p.Width <= maxWidth && p.Height <= maxHeight)
+                {
+                    return p;
+                }
+
+                var scaleW = maxWidth / (double)p.Width;
+                var scaleH = maxHeight / (double)p.Height;
+                var scale = Math.Min(scaleW, scaleH);
+
+                var width = Math.Max(640, (int)Math.Floor(p.Width * scale));
+                var height = Math.Max(360, (int)Math.Floor(p.Height * scale));
+
+                width -= width % 2;
+                height -= height % 2;
+
+                var fps = Math.Min(p.RefreshRate, 60);
+                var recommended = VideoEncoderFactory.GetRecommendedConfig(width, height, fps).Bitrate;
+                var bitrate = Math.Min(p.BitrateBps, recommended);
+
+                return new SessionVideoProfile(width, height, fps, bitrate);
+            }
+
+            Add(preferred);
+
+            if (preferred.RefreshRate > 60)
+            {
+                Add(WithFps(preferred, 60));
+            }
+
+            if (preferred.RefreshRate > 30)
+            {
+                Add(WithFps(preferred, 30));
+            }
+
+            var scaled1080 = ScaleDown(preferred, 1920, 1080);
+            if (!Equals(scaled1080, preferred))
+            {
+                Add(scaled1080);
+                if (scaled1080.RefreshRate > 60)
+                {
+                    Add(WithFps(scaled1080, 60));
+                }
+                if (scaled1080.RefreshRate > 30)
+                {
+                    Add(WithFps(scaled1080, 30));
+                }
+            }
+
+            var scaled720 = ScaleDown(preferred, 1280, 720);
+            if (!Equals(scaled720, preferred) && !Equals(scaled720, scaled1080))
+            {
+                Add(scaled720);
+                if (scaled720.RefreshRate > 60)
+                {
+                    Add(WithFps(scaled720, 60));
+                }
+                if (scaled720.RefreshRate > 30)
+                {
+                    Add(WithFps(scaled720, 30));
+                }
+            }
+
+            if (!Equals(degraded, preferred))
+            {
+                Add(degraded);
+                if (degraded.RefreshRate > 30)
+                {
+                    Add(WithFps(degraded, 30));
+                }
+            }
+
+            return profiles;
         }
 
         public async Task<bool> DisconnectAsync(string deviceId)

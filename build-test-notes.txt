@@ -634,3 +634,18 @@ Android：
   - 结果：成功（0 警告，0 错误）
 - 测试：`dotnet test ExpandScreen.sln -c Release`
   - 结果：通过 47，跳过 9，失败 0（总计 56）
+
+---
+
+任务5.1.5（TEST-005 用户体验测试）构建/测试（Windows）
+日期：2026-01-26
+
+.NET：
+- SDK：8.0.417
+- 构建：`dotnet build ExpandScreen.sln -c Release`
+  - 结果：成功（4 警告，0 错误）
+- 测试：`dotnet test ExpandScreen.sln -c Release --no-build`
+  - 结果：通过 48，跳过 9，失败 0（总计 57）
+
+说明：
+- 构建告警为历史代码告警（CS8602/CS8625 等），不影响本任务测试通过。

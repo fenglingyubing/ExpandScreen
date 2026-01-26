@@ -725,30 +725,37 @@
                                     </TextBlock>
 
                                     <TextBlock Grid.Row="6" Grid.Column="0" Text="诊断" Style="{StaticResource SettingsLabelStyle}" Margin="0,14,0,0"/>
-                                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,14,0,0">
-                                        <Button Style="{DynamicResource SecondaryButtonStyle}"
-                                                Content="打开日志目录"
-                                                Padding="14,6"
-                                                Click="OpenLogDirectory_Click"
-                                                Margin="0,0,12,0"/>
-                                        <Button Style="{DynamicResource SecondaryButtonStyle}"
-                                                Content="导出诊断包"
-                                                Padding="14,6"
-                                                Click="ExportDiagnostics_Click"
-                                                Margin="0,0,12,0"/>
-                                        <Button Style="{DynamicResource SecondaryButtonStyle}"
-                                                Content="复制兼容性摘要"
-                                                Padding="14,6"
-                                                Click="CopyCompatibilitySummary_Click"
-                                                Margin="0,0,12,0"/>
-                                        <Button Style="{DynamicResource SecondaryButtonStyle}"
-                                                Content="复制安全摘要"
-                                                Padding="14,6"
-                                                Click="CopySecuritySummary_Click"
-                                                Margin="0,0,12,0"/>
-                                        <TextBlock Text="（包含系统信息/兼容性/配置/日志/性能快照）"
+                                    <StackPanel Grid.Row="6" Grid.Column="1" Margin="0,14,0,0">
+                                        <WrapPanel>
+                                            <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                    Content="打开日志目录"
+                                                    Padding="14,6"
+                                                    Click="OpenLogDirectory_Click"
+                                                    Margin="0,0,12,10"/>
+                                            <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                    Content="导出诊断包"
+                                                    Padding="14,6"
+                                                    Click="ExportDiagnostics_Click"
+                                                    Margin="0,0,12,10"/>
+                                            <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                    Content="复制兼容性摘要"
+                                                    Padding="14,6"
+                                                    Click="CopyCompatibilitySummary_Click"
+                                                    Margin="0,0,12,10"/>
+                                            <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                    Content="复制安全摘要"
+                                                    Padding="14,6"
+                                                    Click="CopySecuritySummary_Click"
+                                                    Margin="0,0,12,10"/>
+                                            <Button Style="{DynamicResource SecondaryButtonStyle}"
+                                                    Content="复制体验摘要"
+                                                    Padding="14,6"
+                                                    Click="CopyUxSummary_Click"
+                                                    Margin="0,0,12,10"/>
+                                        </WrapPanel>
+                                        <TextBlock Text="（包含系统信息/兼容性/安全/体验/配置/日志/性能快照；并附带可填写的用户反馈模板）"
                                                    Style="{StaticResource SettingsLabelStyle}"
-                                                   VerticalAlignment="Center"/>
+                                                   TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>

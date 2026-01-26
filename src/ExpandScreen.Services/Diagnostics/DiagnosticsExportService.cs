@@ -69,6 +69,20 @@ namespace ExpandScreen.Services.Diagnostics
                 await AddTextAsync(zip, "security-info.error.txt", ex.ToString(), cancellationToken).ConfigureAwait(false);
             }
 
+            // UX info (best-effort)
+            try
+            {
+                var ux = UxSnapshotCollector.Collect(configSnapshot);
+                await AddJsonAsync(zip, "ux-info.json", ux, cancellationToken).ConfigureAwait(false);
+                await AddTextAsync(zip, "ux-summary.txt", UxSnapshotCollector.BuildSummaryText(ux), cancellationToken).ConfigureAwait(false);
+                await AddTextAsync(zip, "ux-feedback-template.md", UxSnapshotCollector.BuildFeedbackTemplate(ux), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await AddTextAsync(zip, "ux-info.error.txt", ex.ToString(), cancellationToken).ConfigureAwait(false);
+            }
+
             // Config snapshot
             await AddJsonAsync(zip, "config.json", configSnapshot, cancellationToken).ConfigureAwait(false);
             await AddTextAsync(zip, "config-path.txt", configPath, cancellationToken).ConfigureAwait(false);

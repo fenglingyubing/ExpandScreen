@@ -39,7 +39,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/ExpandScreen.git
+git clone https://github.com/fenglingyubing/ExpandScreen.git
 cd ExpandScreen
 
 # 恢复NuGet包
@@ -297,6 +297,7 @@ dotnet restore ExpandScreen.sln
 ## 获取帮助
 
 - **文档**：查看 [docs/](../docs/) 目录下的其他文档
+- **开发者文档**：`docs/developer/README.md`
 - **问题反馈**：提交Issue到GitHub
 - **讨论**：参与GitHub Discussions
 

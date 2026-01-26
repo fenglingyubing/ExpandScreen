@@ -652,6 +652,22 @@ Android：
 
 ---
 
+任务6.1.2（DOC-002 开发者文档）构建/测试（Windows）
+日期：2026-01-26
+
+.NET：
+- SDK：8.0.417
+- 构建：`dotnet build ExpandScreen.sln -c Release`
+  - 结果：成功（4 警告，0 错误）
+- 测试：`dotnet test ExpandScreen.sln -c Release --verbosity normal`
+  - 结果：通过 50，跳过 9，失败 0（总计 59）
+
+说明：
+- 本任务为开发者文档产出，构建/测试用于基础回归验证。
+- 构建告警为历史代码告警（CS8602/CS8625 等），不影响本任务测试通过。
+
+---
+
 任务6.1.1（DOC-001 用户文档）构建/测试（Windows）
 日期：2026-01-26
 

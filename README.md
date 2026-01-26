@@ -67,7 +67,7 @@ ExpandScreen/
 ### 克隆仓库
 
 ```bash
-git clone https://github.com/yourusername/ExpandScreen.git
+git clone https://github.com/fenglingyubing/ExpandScreen.git
 cd ExpandScreen
 ```
 
@@ -94,6 +94,13 @@ dotnet test ExpandScreen.sln
 
 详细的开发指南请参阅 [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
+## 开发者文档
+
+- 开发者文档索引：[docs/developer/README.md](docs/developer/README.md)
+- 通信协议（API）：[docs/developer/API.md](docs/developer/API.md)
+- 系统架构：[docs/developer/ARCHITECTURE.md](docs/developer/ARCHITECTURE.md)
+- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
+
 ## 用户文档
 
 - 用户文档（Markdown）：[docs/用户文档.md](docs/用户文档.md)
@@ -113,13 +120,7 @@ dotnet test ExpandScreen.sln
 
 ## 贡献指南
 
-欢迎贡献代码！请遵循以下步骤：
-
-1. Fork本仓库
-2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启一个Pull Request
+欢迎贡献代码！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 许可证
 
@@ -127,8 +128,8 @@ dotnet test ExpandScreen.sln
 
 ## 联系方式
 
-- 项目主页：https://github.com/yourusername/ExpandScreen
-- 问题反馈：https://github.com/yourusername/ExpandScreen/issues
+- 项目主页：https://github.com/fenglingyubing/ExpandScreen
+- 问题反馈：https://github.com/fenglingyubing/ExpandScreen/issues
 
 ## 致谢
 

@@ -177,6 +177,10 @@ dotnet build ExpandScreen.sln --configuration Debug
 dotnet build ExpandScreen.sln --configuration Release
 ```
 
+### 发布构建（Windows）
+
+Windows 发布包/安装包的生成流程见：`docs/developer/RELEASE.md`。
+
 ### 调试技巧
 
 #### Visual Studio调试

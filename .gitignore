@@ -64,6 +64,12 @@ logs/
 *.tmp
 *.temp
 
+# Local release artifacts
+artifacts/
+installer/Output/
+installer/.output/
+installer/.cache/
+
 # Mac
 .DS_Store
 

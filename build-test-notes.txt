@@ -682,6 +682,23 @@ Android：
 - 本任务为用户文档产出，构建/测试用于基础回归验证。
 - 构建告警为历史代码告警（CS8602/CS8625 等），不影响本任务测试通过。
 
+---
+
+任务6.2.1（REL-001 Windows发布包）构建/测试（Windows）
+日期：2026-01-26
+
+.NET：
+- SDK：8.0.417
+- 构建：`dotnet build ExpandScreen.sln -c Release`
+  - 结果：成功（4 warnings，0 errors）
+- 测试：`dotnet test ExpandScreen.sln -c Release --no-build --verbosity normal`
+  - 结果：通过 50，跳过 9，失败 0（总计 59）
+- 发布（staging）：`./scripts/release/windows/Build-WindowsRelease.ps1 -Configuration Release -RuntimeIdentifier win-x64`
+  - 结果：成功，输出 `artifacts/windows/stage`
+
+说明：
+- 跳过的测试为既有行为，原因是缺少 FFmpeg native binaries（不影响本任务回归结论）。
+
 
 任务5.2.3（OPT-003 兼容性优化）构建/测试（Windows）
 日期：2026-01-26

@@ -99,6 +99,7 @@ dotnet test ExpandScreen.sln
 - 开发者文档索引：[docs/developer/README.md](docs/developer/README.md)
 - 通信协议（API）：[docs/developer/API.md](docs/developer/API.md)
 - 系统架构：[docs/developer/ARCHITECTURE.md](docs/developer/ARCHITECTURE.md)
+- Release 指南：[docs/developer/RELEASE.md](docs/developer/RELEASE.md)
 - 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 用户文档

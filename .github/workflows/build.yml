@@ -16,7 +16,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Restore dependencies
       run: dotnet restore ExpandScreen.sln
@@ -27,6 +27,9 @@ jobs:
     - name: Test
       run: dotnet test ExpandScreen.sln --configuration Release --no-build --verbosity normal
 
+    - name: Publish (WPF, win-x64)
+      run: dotnet publish src/ExpandScreen.UI/ExpandScreen.UI.csproj --configuration Release --runtime win-x64 --no-build -p:DebugType=None -p:DebugSymbols=false -o artifacts/publish/win-x64
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -34,3 +37,4 @@ jobs:
         path: |
           src/**/bin/Release/**
           !src/**/bin/Release/**/ref/**
+          artifacts/publish/**

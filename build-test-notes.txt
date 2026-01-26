@@ -658,7 +658,7 @@ Android：
 .NET：
 - SDK：8.0.417
 - 构建：`dotnet build ExpandScreen.sln -c Release`
-  - 结果：成功（0 警告，0 错误）
+  - 结果：成功（4 警告，0 错误）
 - 测试：`dotnet test ExpandScreen.sln -c Release --no-build`
   - 结果：通过 48，跳过 9，失败 0（总计 57）
 

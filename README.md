@@ -94,6 +94,11 @@ dotnet test ExpandScreen.sln
 
 详细的开发指南请参阅 [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
+## 用户文档
+
+- 用户文档（Markdown）：[docs/用户文档.md](docs/用户文档.md)
+- 用户文档（HTML，可离线打开）：[docs/user-docs/index.html](docs/user-docs/index.html)
+
 ## 任务规划
 
 项目采用敏捷开发模式，分为5个阶段：

@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>ExpandScreen 用户文档</title>
+    <meta
+      name="description"
+      content="ExpandScreen 用户手册：快速开始、安装、USB/WiFi 教程、FAQ、故障排查与发布说明模板。"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#content">跳到正文</a>
+
+    <header class="hero" role="banner">
+      <div class="hero__bg" aria-hidden="true"></div>
+      <div class="hero__inner">
+        <div class="hero__tag">DOC-001 · 用户文档</div>
+        <h1 class="hero__title">ExpandScreen</h1>
+        <p class="hero__subtitle">
+          把 Android 设备变成 Windows 的第二块屏幕：USB/WiFi 连接、触控回传、低延迟显示。
+        </p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#quickstart">快速开始</a>
+          <a class="btn btn--ghost" href="#troubleshoot">故障排查</a>
+          <a class="btn btn--ghost" href="../用户文档.md">查看 Markdown 版</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="content" class="layout" role="main">
+      <aside class="toc" aria-label="目录">
+        <div class="toc__title">目录</div>
+        <nav class="toc__nav">
+          <a href="#quickstart">1. 快速开始</a>
+          <a href="#install">2. 安装说明</a>
+          <a href="#tutorials">3. 使用教程</a>
+          <a href="#faq">4. FAQ</a>
+          <a href="#troubleshoot">5. 故障排查</a>
+          <a href="#release">6. 发布说明模板</a>
+        </nav>
+
+        <div class="toc__meta">
+          <div class="chip">可打印</div>
+          <div class="chip">离线可读</div>
+          <div class="chip">适配深色模式</div>
+        </div>
+      </aside>
+
+      <article class="doc">
+        <section id="quickstart" class="section">
+          <h2>1. 快速开始</h2>
+          <p class="lead">
+            推荐按“最短路径”先跑通，再按需求细化画质、帧率和触控体验。
+          </p>
+
+          <div class="cards">
+            <div class="card">
+              <h3>你将获得什么</h3>
+              <ul>
+                <li>Android 变成 Windows 扩展屏</li>
+                <li>USB/WiFi 连接（取决于版本与部署）</li>
+                <li>触控回传（取决于设备与权限）</li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <h3>最短路径（推荐）</h3>
+              <ol>
+                <li>安装 Windows 客户端（含驱动）</li>
+                <li>安装 Android 客户端</li>
+                <li>选择 USB 或 WiFi 连接</li>
+                <li>在 Windows“显示设置”调整位置/缩放</li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <section id="install" class="section">
+          <h2>2. 安装说明</h2>
+
+          <div class="grid2">
+            <div class="panel">
+              <h3>系统要求</h3>
+              <ul>
+                <li><strong>Windows</strong>：Windows 10/11（建议 WDDM 2.0+）</li>
+                <li><strong>Android</strong>：Android 10+（建议 11+）</li>
+                <li><strong>网络</strong>：WiFi 建议 5GHz；USB 需数据线</li>
+              </ul>
+            </div>
+
+            <div class="panel">
+              <h3>安装提醒</h3>
+              <ul>
+                <li>首次使用 WiFi 模式要允许防火墙放行</li>
+                <li>USB 模式需要 Android 开启 USB 调试并授权</li>
+                <li>虚拟显示器依赖驱动：请优先使用官方发行包</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="callout">
+            <div class="callout__title">驱动安装（虚拟显示器）</div>
+            <p>
+              正式版本应使用已签名驱动并随安装包完成。若系统阻止驱动安装，建议改用官方发行包或联系维护者获取签名版本。
+            </p>
+          </div>
+        </section>
+
+        <section id="tutorials" class="section">
+          <h2>3. 使用教程</h2>
+
+          <div class="tabs" role="tablist" aria-label="连接方式">
+            <button class="tab is-active" type="button" data-tab="usb" role="tab" aria-selected="true">
+              USB
+            </button>
+            <button class="tab" type="button" data-tab="wifi" role="tab" aria-selected="false">
+              WiFi
+            </button>
+            <button class="tab" type="button" data-tab="touch" role="tab" aria-selected="false">
+              触控技巧
+            </button>
+          </div>
+
+          <div class="tabpanes">
+            <section class="pane is-active" id="pane-usb" data-pane="usb" role="tabpanel">
+              <h3>USB 连接教程</h3>
+              <div class="steps">
+                <div class="step">
+                  <div class="step__k">Android 端</div>
+                  <ol>
+                    <li>打开“开发者选项”</li>
+                    <li>开启“USB 调试”</li>
+                    <li>插入数据线连接 Windows</li>
+                    <li>弹窗选择“允许 USB 调试授权”</li>
+                  </ol>
+                </div>
+                <div class="step">
+                  <div class="step__k">Windows 端</div>
+                  <ol>
+                    <li>打开 ExpandScreen</li>
+                    <li>选择连接方式：USB</li>
+                    <li>选择设备并连接</li>
+                    <li>在“显示设置”调整扩展屏布局</li>
+                  </ol>
+                </div>
+              </div>
+              <div class="note">
+                <strong>小提示：</strong>充电线不等于数据线；若设备不显示，先换线/换口，再检查 USB 模式是否为“文件传输”。
+              </div>
+            </section>
+
+            <section class="pane" id="pane-wifi" data-pane="wifi" role="tabpanel">
+              <h3>WiFi 连接教程</h3>
+              <ul>
+                <li>确保 Windows 与 Android 在同一局域网（同一路由器更稳定）</li>
+                <li>首次使用允许 Windows 防火墙放行</li>
+              </ul>
+              <ol>
+                <li>Windows 选择连接方式：WiFi</li>
+                <li>Android 进入“发现/连接”，选择目标设备</li>
+                <li>如出现配对码/确认提示，按提示完成配对</li>
+                <li>连接成功后，在 Windows“显示设置”调整布局</li>
+              </ol>
+              <div class="note">
+                <strong>建议：</strong>WiFi 选 5GHz，尽量靠近路由器；网络拥塞时优先降低帧率（60 → 30）。
+              </div>
+            </section>
+
+            <section class="pane" id="pane-touch" data-pane="touch" role="tabpanel">
+              <h3>触控使用技巧</h3>
+              <ul>
+                <li>触控偏移：检查 Windows 缩放与 Android 分辨率</li>
+                <li>触控延迟：优先 USB，其次 5GHz WiFi</li>
+                <li>手势不可用：部分系统手势会被拦截，可切换“手势/点击模式”</li>
+              </ul>
+            </section>
+          </div>
+        </section>
+
+        <section id="faq" class="section">
+          <h2>4. 常见问题（FAQ）</h2>
+
+          <details class="qa">
+            <summary>连接失败 / 找不到设备怎么办？</summary>
+            <ul>
+              <li>USB：确认 USB 调试已开启并授权；更换线缆/接口；重插</li>
+              <li>WiFi：确认同一局域网；关闭 VPN/代理；允许防火墙；重启路由器</li>
+            </ul>
+          </details>
+
+          <details class="qa">
+            <summary>画面卡顿或延迟很高？</summary>
+            <ul>
+              <li>优先切换 USB</li>
+              <li>WiFi 用 5GHz，靠近路由器</li>
+              <li>关闭占网应用，降低分辨率/帧率</li>
+            </ul>
+          </details>
+
+          <details class="qa">
+            <summary>Windows 没有出现“第二屏”？</summary>
+            <ul>
+              <li>打开“显示设置”，确认检测到新显示器</li>
+              <li>重新安装驱动或改用官方发行包</li>
+              <li>更新显卡驱动与系统补丁</li>
+            </ul>
+          </details>
+        </section>
+
+        <section id="troubleshoot" class="section">
+          <h2>5. 故障排查指南</h2>
+          <p class="lead">先完成“三步定位”，再提交诊断信息，效率最高。</p>
+
+          <div class="triage">
+            <div class="triage__item">
+              <div class="triage__n">1</div>
+              <div class="triage__t">重启应用</div>
+              <div class="triage__d">Windows / Android 都重启一次</div>
+            </div>
+            <div class="triage__item">
+              <div class="triage__n">2</div>
+              <div class="triage__t">切换连接</div>
+              <div class="triage__d">WiFi ↔ USB，排除网络因素</div>
+            </div>
+            <div class="triage__item">
+              <div class="triage__n">3</div>
+              <div class="triage__t">收集诊断</div>
+              <div class="triage__d">版本/环境/日志/复现步骤</div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="panel">
+              <h3>Windows 侧信息</h3>
+              <ul>
+                <li>Windows 版本、显卡型号</li>
+                <li>连接方式（USB/WiFi）与网络环境</li>
+                <li>应用日志/诊断包（如有导出入口）</li>
+              </ul>
+            </div>
+            <div class="panel">
+              <h3>Android 侧信息</h3>
+              <ul>
+                <li>机型、Android 版本</li>
+                <li>分辨率/刷新率</li>
+                <li>应用日志或 logcat（如可获取）</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="release" class="section">
+          <h2>6. 发布说明模板</h2>
+
+          <div class="callout callout--paper">
+            <div class="callout__title">Release Notes</div>
+            <pre class="pre"><code>版本号：vX.Y.Z
+发布日期：YYYY-MM-DD
+
+新功能
+- …
+
+变更/修复
+- …
+
+已知问题
+- …
+
+系统要求
+- Windows：Windows 10/11（建议 WDDM 2.0+）
+- Android：Android 10+</code></pre>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <div class="footer__hint">
+            本页为静态文档，可直接离线打开。若需更新内容，建议优先编辑
+            <a href="../用户文档.md">`docs/用户文档.md`</a>，再同步到 HTML 版。
+          </div>
+        </footer>
+      </article>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
+

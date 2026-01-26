@@ -9,11 +9,24 @@ namespace ExpandScreen.UI.ViewModels
 {
     public sealed class PerformanceTestViewModel : ViewModelBase, IDisposable
     {
-        private readonly PerformanceMonitor _monitor = new();
-        private readonly DispatcherTimer _timer;
+        private const int SampleIntervalMs = 500;
+        private const int HistorySize = 90;
+        private const double SparklineWidth = 420;
+        private const double SparklineHeight = 80;
 
-        private readonly List<double> _cpuHistory = new();
-        private readonly List<double> _memHistory = new();
+        private readonly PerformanceMonitor _monitor = new();
+        private readonly Dispatcher _uiDispatcher;
+        private readonly CancellationTokenSource _samplingCts = new();
+        private readonly Task _samplingTask;
+
+        private readonly double[] _cpuHistory = new double[HistorySize];
+        private int _cpuHistoryHead;
+        private int _cpuHistoryCount;
+
+        private readonly double[] _memHistory = new double[HistorySize];
+        private int _memHistoryHead;
+        private int _memHistoryCount;
+
         private readonly List<PerformanceSnapshot> _recordedSamples = new();
 
         private bool _isRecording;
@@ -34,18 +47,18 @@ namespace ExpandScreen.UI.ViewModels
 
         public PerformanceTestViewModel()
         {
+            _uiDispatcher = Dispatcher.CurrentDispatcher;
+
             StartRecordingCommand = new RelayCommand(_ => ExecuteStartRecording(), _ => !IsRecording);
             StopRecordingCommand = new RelayCommand(_ => ExecuteStopRecording(), _ => IsRecording);
             ExportJsonCommand = new RelayCommand(_ => ExecuteExportJson(), _ => _lastRun != null);
             ExportCsvCommand = new RelayCommand(_ => ExecuteExportCsv(), _ => _lastRun != null);
             ClearCommand = new RelayCommand(_ => ExecuteClear());
 
-            _timer = new DispatcherTimer(DispatcherPriority.Background)
-            {
-                Interval = TimeSpan.FromMilliseconds(500)
-            };
-            _timer.Tick += (_, _) => Tick();
-            _timer.Start();
+            CpuSparkline = new PointCollection();
+            MemSparkline = new PointCollection();
+
+            _samplingTask = Task.Run(() => SamplingLoopAsync(_samplingCts.Token));
         }
 
         public bool IsRecording
@@ -127,33 +140,52 @@ namespace ExpandScreen.UI.ViewModels
         public RelayCommand ExportCsvCommand { get; }
         public RelayCommand ClearCommand { get; }
 
-        private void Tick()
+        private async Task SamplingLoopAsync(CancellationToken cancellationToken)
         {
-            var snap = _monitor.GetSnapshot();
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(SampleIntervalMs));
 
-            CpuNowText = $"{snap.CpuUsagePercent:F1}%";
-            MemNowText = $"{snap.WorkingSetMb:F0} MB";
-            HeapNowText = $"{snap.ManagedHeapMb:F0} MB";
-            RttNowText = snap.LastHeartbeatRttMs.HasValue
-                ? $"{snap.LastHeartbeatRttMs.Value:F1} ms / avg {snap.AverageHeartbeatRttMs.GetValueOrDefault():F1} ms"
-                : "N/A";
-            FpsNowText = snap.CurrentFps.HasValue ? $"{snap.CurrentFps.Value:F1} fps" : "N/A";
-            LatencyNowText = snap.CurrentLatencyMs.HasValue ? $"{snap.CurrentLatencyMs.Value:F1} ms" : "N/A";
-
-            PushHistory(_cpuHistory, snap.CpuUsagePercent, 90);
-            PushHistory(_memHistory, snap.WorkingSetMb, 90);
-            CpuSparkline = BuildSparkline(_cpuHistory, max: 100, width: 420, height: 80);
-            MemSparkline = BuildSparkline(_memHistory, max: Math.Max(1, _memHistory.Max()), width: 420, height: 80);
-
-            if (IsRecording)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                _recordedSamples.Add(snap);
-                var elapsed = _recordingStartedUtc.HasValue ? (DateTime.UtcNow - _recordingStartedUtc.Value) : TimeSpan.Zero;
-                StatusText = $"录制中… {elapsed.TotalSeconds:F1}s（{_recordedSamples.Count} samples）";
-            }
-            else
-            {
-                StatusText = "就绪";
+                bool ticked;
+                try
+                {
+                    ticked = await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+
+                if (!ticked)
+                {
+                    break;
+                }
+
+                PerformanceSnapshot snap;
+                try
+                {
+                    snap = _monitor.GetSnapshot();
+                }
+                catch
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await _uiDispatcher.InvokeAsync(
+                            () => ApplySnapshot(snap),
+                            DispatcherPriority.Background)
+                        .Task.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch
+                {
+                    // ignore (window may be closing)
+                }
             }
         }
 
@@ -254,36 +286,92 @@ namespace ExpandScreen.UI.ViewModels
             IsRecording = false;
             ExportJsonCommand.RaiseCanExecuteChanged();
             ExportCsvCommand.RaiseCanExecuteChanged();
+
+            Array.Clear(_cpuHistory, 0, _cpuHistory.Length);
+            _cpuHistoryHead = 0;
+            _cpuHistoryCount = 0;
+            Array.Clear(_memHistory, 0, _memHistory.Length);
+            _memHistoryHead = 0;
+            _memHistoryCount = 0;
+            CpuSparkline.Clear();
+            MemSparkline.Clear();
         }
 
-        private static void PushHistory(List<double> list, double value, int max)
+        private void ApplySnapshot(PerformanceSnapshot snap)
         {
-            list.Add(value);
-            while (list.Count > max)
+            CpuNowText = $"{snap.CpuUsagePercent:F1}%";
+            MemNowText = $"{snap.WorkingSetMb:F0} MB";
+            HeapNowText = $"{snap.ManagedHeapMb:F0} MB";
+            RttNowText = snap.LastHeartbeatRttMs.HasValue
+                ? $"{snap.LastHeartbeatRttMs.Value:F1} ms / avg {snap.AverageHeartbeatRttMs.GetValueOrDefault():F1} ms"
+                : "N/A";
+            FpsNowText = snap.CurrentFps.HasValue ? $"{snap.CurrentFps.Value:F1} fps" : "N/A";
+            LatencyNowText = snap.CurrentLatencyMs.HasValue ? $"{snap.CurrentLatencyMs.Value:F1} ms" : "N/A";
+
+            PushHistory(_cpuHistory, ref _cpuHistoryHead, ref _cpuHistoryCount, snap.CpuUsagePercent);
+            PushHistory(_memHistory, ref _memHistoryHead, ref _memHistoryCount, snap.WorkingSetMb);
+
+            UpdateSparkline(CpuSparkline, _cpuHistory, _cpuHistoryHead, _cpuHistoryCount, max: 100, width: SparklineWidth, height: SparklineHeight);
+            UpdateSparkline(MemSparkline, _memHistory, _memHistoryHead, _memHistoryCount, max: Math.Max(1, GetHistoryMax(_memHistory, _memHistoryHead, _memHistoryCount)), width: SparklineWidth, height: SparklineHeight);
+
+            if (IsRecording)
             {
-                list.RemoveAt(0);
+                _recordedSamples.Add(snap);
+                var elapsed = _recordingStartedUtc.HasValue ? (DateTime.UtcNow - _recordingStartedUtc.Value) : TimeSpan.Zero;
+                StatusText = $"录制中… {elapsed.TotalSeconds:F1}s（{_recordedSamples.Count} samples）";
+            }
+            else
+            {
+                StatusText = "就绪";
             }
         }
 
-        private static PointCollection BuildSparkline(IReadOnlyList<double> values, double max, double width, double height)
+        private static void PushHistory(double[] buffer, ref int head, ref int count, double value)
         {
-            var points = new PointCollection();
-            if (values.Count == 0)
+            buffer[head] = value;
+            head = (head + 1) % buffer.Length;
+            if (count < buffer.Length)
             {
-                return points;
+                count++;
+            }
+        }
+
+        private static double GetHistoryMax(double[] buffer, int head, int count)
+        {
+            if (count <= 0)
+            {
+                return 0;
+            }
+
+            double max = double.MinValue;
+            int start = count == buffer.Length ? head : 0;
+            for (int i = 0; i < count; i++)
+            {
+                double v = buffer[(start + i) % buffer.Length];
+                max = Math.Max(max, v);
+            }
+            return max;
+        }
+
+        private static void UpdateSparkline(PointCollection points, double[] buffer, int head, int count, double max, double width, double height)
+        {
+            points.Clear();
+            if (count <= 0)
+            {
+                return;
             }
 
             max = Math.Max(1, max);
-            double stepX = values.Count == 1 ? 0 : width / (values.Count - 1);
-            for (int i = 0; i < values.Count; i++)
+            double stepX = count == 1 ? 0 : width / (count - 1);
+
+            int start = count == buffer.Length ? head : 0;
+            for (int i = 0; i < count; i++)
             {
                 double x = i * stepX;
-                double v = Math.Clamp(values[i] / max, 0, 1);
+                double v = Math.Clamp(buffer[(start + i) % buffer.Length] / max, 0, 1);
                 double y = (1 - v) * height;
                 points.Add(new System.Windows.Point(x, y));
             }
-
-            return points;
         }
 
         private static string EnsureDir(string path)
@@ -302,7 +390,15 @@ namespace ExpandScreen.UI.ViewModels
         {
             try
             {
-                _timer.Stop();
+                _samplingCts.Cancel();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _samplingCts.Dispose();
             }
             catch
             {

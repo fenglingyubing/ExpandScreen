@@ -340,10 +340,8 @@ namespace ExpandScreen.Protocol.Network
                     _fecVideoFrameBuffer.Clear();
                 }
 
-                // 复制一份以避免上层复用缓冲区
-                var copy = new byte[payload.Length];
-                Buffer.BlockCopy(payload, 0, copy, 0, payload.Length);
-                _fecVideoFrameBuffer[sequenceNumber] = copy;
+                // NetworkReceiver 为每条消息创建独立 payload 缓冲区；这里直接缓存引用即可，避免额外拷贝。
+                _fecVideoFrameBuffer[sequenceNumber] = payload;
             }
         }
 

@@ -16,7 +16,11 @@ namespace ExpandScreen.Services.Diagnostics
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("path is required.", nameof(path));
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
             await using var stream = File.Create(path);
             await JsonSerializer.SerializeAsync(
                     stream,
@@ -30,7 +34,11 @@ namespace ExpandScreen.Services.Diagnostics
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("path is required.", nameof(path));
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
 
             await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
             await using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));

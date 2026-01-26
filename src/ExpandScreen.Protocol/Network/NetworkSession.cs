@@ -750,16 +750,79 @@ namespace ExpandScreen.Protocol.Network
         {
             if (!_disposed)
             {
-                _heartbeatCts.Cancel();
-                _heartbeatTask?.Wait(TimeSpan.FromSeconds(5));
+                try
+                {
+                    _heartbeatCts.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Debug($"[NetworkSession] Heartbeat cancel failed: {ex.GetBaseException().Message}");
+                }
 
-                _optimizationCts.Cancel();
-                _optimizationTask?.Wait(TimeSpan.FromSeconds(5));
-                _optimizationCts.Dispose();
+                try
+                {
+                    _heartbeatTask?.Wait(TimeSpan.FromSeconds(5));
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Debug($"[NetworkSession] Heartbeat task wait failed: {ex.GetBaseException().Message}");
+                }
 
-                _sender.Dispose();
-                _receiver.Dispose();
-                _heartbeatCts.Dispose();
+                try
+                {
+                    _optimizationCts.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Debug($"[NetworkSession] Optimization cancel failed: {ex.GetBaseException().Message}");
+                }
+
+                try
+                {
+                    _optimizationTask?.Wait(TimeSpan.FromSeconds(5));
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Debug($"[NetworkSession] Optimization task wait failed: {ex.GetBaseException().Message}");
+                }
+
+                try
+                {
+                    _optimizationCts.Dispose();
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    _sender.Dispose();
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    _receiver.Dispose();
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    _heartbeatCts.Dispose();
+                }
+                catch
+                {
+                }
 
                 _disposed = true;
             }

@@ -101,15 +101,48 @@ namespace ExpandScreen.Core.Encode
 
             LogHelper.Info("停止视频编码服务");
 
-            _cancellationTokenSource.Cancel();
-            _inputQueue.Writer.Complete();
+            try
+            {
+                _cancellationTokenSource?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Warning($"停止编码服务：取消失败（{ex.GetBaseException().Message}）");
+            }
+
+            try
+            {
+                _inputQueue.Writer.Complete();
+            }
+            catch
+            {
+            }
 
             if (_encodingTask != null)
             {
-                await _encodingTask;
+                try
+                {
+                    await _encodingTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Error($"编码线程异常退出: {ex.Message}", ex);
+                }
             }
 
-            _outputQueue.Writer.Complete();
+            try
+            {
+                _outputQueue.Writer.Complete();
+            }
+            catch
+            {
+            }
             _isRunning = false;
             _performanceTimer.Stop();
 
@@ -267,9 +300,30 @@ namespace ExpandScreen.Core.Encode
         /// </summary>
         public void Dispose()
         {
-            StopAsync().Wait();
-            _cancellationTokenSource?.Dispose();
-            _encoder?.Dispose();
+            try
+            {
+                StopAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                LogHelper.Error("VideoEncodingService dispose: StopAsync failed.", ex);
+            }
+
+            try
+            {
+                _cancellationTokenSource?.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _encoder?.Dispose();
+            }
+            catch
+            {
+            }
         }
     }
 }

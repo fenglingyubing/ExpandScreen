@@ -652,6 +652,21 @@ Android：
 
 ---
 
+任务5.2.2（OPT-002 稳定性优化）构建/测试（Windows）
+日期：2026-01-26
+
+.NET：
+- SDK：8.0.417
+- 构建：`dotnet build ExpandScreen.sln -c Release`
+  - 结果：成功（0 警告，0 错误）
+- 测试：`dotnet test ExpandScreen.sln -c Release --no-build`
+  - 结果：通过 48，跳过 9，失败 0（总计 57）
+
+说明：
+- 测试集中部分端到端/编码器测试在无外部依赖环境下会标记为 SKIP（既有行为），不影响本任务回归结论。
+
+---
+
 任务5.2.1（OPT-001 性能优化）构建/测试（Windows）
 日期：2026-01-26
 

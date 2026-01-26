@@ -1,8 +1,11 @@
 using System.Windows;
+using System.Windows.Threading;
 using ExpandScreen.Services.Analytics;
 using ExpandScreen.Services.Configuration;
 using ExpandScreen.UI.Services;
 using ExpandScreen.UI.ViewModels;
+using ExpandScreen.UI.Views;
+using ExpandScreen.Utils;
 using Serilog;
 
 namespace ExpandScreen.UI
@@ -11,6 +14,7 @@ namespace ExpandScreen.UI
     {
         private TrayIconService? _trayIconService;
         private GlobalHotkeyService? _hotkeyService;
+        private int _isHandlingUnhandledException;
         public bool IsShuttingDown { get; private set; }
         public ConfigService ConfigService { get; } = new();
         public AnalyticsService AnalyticsService { get; } = new();
@@ -18,6 +22,8 @@ namespace ExpandScreen.UI
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            RegisterGlobalExceptionHandlers();
 
             // Bootstrap Serilog (reconfigured after config load)
             SerilogConfigurator.Apply(new LoggingConfig());
@@ -55,6 +61,101 @@ namespace ExpandScreen.UI
 
             // Initialize tray icon
             _trayIconService = new TrayIconService();
+        }
+
+        private void RegisterGlobalExceptionHandlers()
+        {
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+        }
+
+        private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            if (IsShuttingDown)
+            {
+                return;
+            }
+
+            if (Interlocked.Exchange(ref _isHandlingUnhandledException, 1) == 1)
+            {
+                return;
+            }
+
+            try
+            {
+                LogHelper.Error("[UI] DispatcherUnhandledException", e.Exception);
+
+                bool shouldContinue = false;
+                try
+                {
+                    var dialog = new UnhandledExceptionDialog(e.Exception);
+                    if (MainWindow != null && MainWindow.IsLoaded)
+                    {
+                        dialog.Owner = MainWindow;
+                    }
+
+                    var result = dialog.ShowDialog();
+                    shouldContinue = result == true;
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Error("[UI] Failed to show exception dialog.", ex);
+                    try
+                    {
+                        MessageBox.Show(
+                            $"应用遇到错误并需要关闭。\n\n{e.Exception.GetBaseException().Message}",
+                            "ExpandScreen",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                e.Handled = true;
+
+                if (!shouldContinue)
+                {
+                    IsShuttingDown = true;
+                    Shutdown(-1);
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _isHandlingUnhandledException, 0);
+            }
+        }
+
+        private void OnAppDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e)
+        {
+            try
+            {
+                if (e.ExceptionObject is Exception ex)
+                {
+                    LogHelper.Error("[Fatal] AppDomain UnhandledException", ex);
+                }
+                else
+                {
+                    LogHelper.Error($"[Fatal] AppDomain UnhandledException (non-Exception): {e.ExceptionObject}");
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            try
+            {
+                LogHelper.Error("[BG] UnobservedTaskException", e.Exception);
+                e.SetObserved();
+            }
+            catch
+            {
+            }
         }
 
         private static AnalyticsOptions ToAnalyticsOptions(AppConfig config)
@@ -140,6 +241,9 @@ namespace ExpandScreen.UI
             _hotkeyService?.Dispose();
             _trayIconService?.Dispose();
             ConfigService.Dispose();
+            TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
+            AppDomain.CurrentDomain.UnhandledException -= OnAppDomainUnhandledException;
+            DispatcherUnhandledException -= OnDispatcherUnhandledException;
             try
             {
                 AnalyticsService.FlushAsync().GetAwaiter().GetResult();

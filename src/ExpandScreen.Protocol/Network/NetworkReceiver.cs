@@ -245,10 +245,34 @@ namespace ExpandScreen.Protocol.Network
         {
             if (!_disposed)
             {
-                _cts.Cancel();
-                _receiveTask.Wait(TimeSpan.FromSeconds(5));
+                try
+                {
+                    _cts.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Debug($"[NetworkReceiver] Cancel failed: {ex.GetBaseException().Message}");
+                }
 
-                _cts.Dispose();
+                try
+                {
+                    _receiveTask.Wait(TimeSpan.FromSeconds(5));
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.Debug($"[NetworkReceiver] Receive task wait failed: {ex.GetBaseException().Message}");
+                }
+
+                try
+                {
+                    _cts.Dispose();
+                }
+                catch
+                {
+                }
 
                 _disposed = true;
             }
